@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdio>
 #include <iostream>
 #include <map>
@@ -7,7 +8,7 @@
 #include <string>
 #include <vector>
 
-enum class Tokens { Digit, Lparen, Rparen, Plus, Minus, Mult, Div };
+enum class Tokens { Digit, Lparen, Rparen, Plus, Minus, Mult, Div, Pow, Mod };
 struct TokenHandler {
     std::string value;
     Tokens token;
@@ -61,6 +62,12 @@ class Lexer {
                 case ')':
                     m_AddTok(Tokens::Rparen, ")");
                     break;
+                case '^':
+                    m_AddTok(Tokens::Pow, "^");
+                    break;
+                case '%':
+                    m_AddTok(Tokens::Mod, "%");
+                    break;
             }
             m_Advance();
         }
@@ -71,13 +78,14 @@ std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Div, "DIV"},       {Tokens::Mult, "MULT"},
     {Tokens::Plus, "PLUS"},     {Tokens::Minus, "MINUS"},
     {Tokens::Lparen, "LPAREN"}, {Tokens::Rparen, "RPAREN"},
-    {Tokens::Digit, "DIGIT"}};
+    {Tokens::Digit, "DIGIT"},   {Tokens::Pow, "POW"},
+    {Tokens::Mod, "MOD"}};
 
 // ASTs
-enum class Op { Minus, Plus, Div, Mult };
+enum class Op { Minus, Plus, Div, Mult, Pow, Mod };
 enum class AstType { Number, BinaryOp, Expr };
-std::map<Op, char> ops_str{
-    {Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'}, {Op::Mult, '*'}};
+std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},
+                           {Op::Mult, '*'},  {Op::Pow, '^'},  {Op::Mod, '%'}};
 struct Expr {
     virtual std::string str() = 0;
     virtual AstType type() const { return AstType::Expr; }
@@ -135,17 +143,33 @@ class Parser {
         return std::move(out);
     }
     u_ptr m_ParseTerm() {
-        u_ptr out = m_ParseFactor();
+        u_ptr out = m_ParseSu();
         while (not_eof() && (m_Get().token == Tokens::Mult ||
                              m_Get().token == Tokens::Div)) {
             if (m_Get().token == Tokens::Mult) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(
-                    Op::Mult, std::move(out), std::move(m_ParseFactor()));
+                out = std::make_unique<BinaryOpExpr>(Op::Mult, std::move(out),
+                                                     std::move(m_ParseSu()));
             } else if (m_Get().token == Tokens::Div) {
                 m_Advance();
+                out = std::make_unique<BinaryOpExpr>(Op::Div, std::move(out),
+                                                     std::move(m_ParseSu()));
+            }
+        }
+        return std::move(out);
+    }
+    u_ptr m_ParseSu() {
+        u_ptr out = m_ParseFactor();
+        while (not_eof() &&
+               (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
+            if (m_Get().token == Tokens::Pow) {
+                m_Advance();
                 out = std::make_unique<BinaryOpExpr>(
-                    Op::Div, std::move(out), std::move(m_ParseFactor()));
+                    Op::Pow, std::move(out), std::move(m_ParseFactor()));
+            } else if (m_Get().token == Tokens::Mod) {
+                m_Advance();
+                out = std::make_unique<BinaryOpExpr>(
+                    Op::Mod, std::move(out), std::move(m_ParseFactor()));
             }
         }
         return std::move(out);
@@ -203,6 +227,14 @@ class Interpreter {
         return Number(visit(std::move(boe->lhs)).val *
                       visit(std::move(boe->rhs)).val);
     }
+    Number m_VisitMod(BinaryOpExpr* boe) {
+        return Number(std::fmod(visit(std::move(boe->lhs)).val,
+                                visit(std::move(boe->rhs)).val));
+    }
+    Number m_VisitPow(BinaryOpExpr* boe) {
+        return Number(std::pow(visit(std::move(boe->lhs)).val,
+                               visit(std::move(boe->rhs)).val));
+    }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
@@ -227,6 +259,10 @@ class Interpreter {
                         return m_VisitDiv(bopexpr);
                     case Op::Mult:
                         return m_VisitMult(bopexpr);
+                    case Op::Pow:
+                        return m_VisitPow(bopexpr);
+                    case Op::Mod:
+                        return m_VisitMod(bopexpr);
                 }
             }
             case AstType::Number: {
@@ -235,3 +271,4 @@ class Interpreter {
         }
     }
 };
+
