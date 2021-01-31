@@ -73,8 +73,8 @@ class Lexer {
                         m_AddTok(Tokens::Digit, m_GetDigit());
                     }
                     break;
-                case '*':
-                    m_AddTok(Tokens::Mult, "*");
+                case 'x':
+                    m_AddTok(Tokens::Mult, "x");
                     break;
                 case '+':
                     m_AddTok(Tokens::Plus, "+");
@@ -120,7 +120,7 @@ std::map<Tokens, std::string_view> tokens_str{
 enum class Op { Minus, Plus, Div, Mult, Pow, Mod, Sqrt };
 enum class AstType { Number, BinaryOp, Expr };
 std::map<Op, char> ops_str{
-    {Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},       {Op::Mult, '*'},
+    {Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},       {Op::Mult, 'x'},
     {Op::Pow, '^'},   {Op::Mod, '%'},  {Op::Sqrt, u'\u221A'}};
 struct Expr {
     virtual std::string str() = 0;
@@ -206,12 +206,12 @@ class Parser {
                (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
             if (m_Get().token == Tokens::Pow) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Pow, std::move(out),
-                                                     std::move(m_ParseFactor()));
+                out = std::make_unique<BinaryOpExpr>(
+                    Op::Pow, std::move(out), std::move(m_ParseFactor()));
             } else if (m_Get().token == Tokens::Mod) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Mod, std::move(out),
-                                                     std::move(m_ParseFactor()));
+                out = std::make_unique<BinaryOpExpr>(
+                    Op::Mod, std::move(out), std::move(m_ParseFactor()));
             }
         }
         return std::move(out);
