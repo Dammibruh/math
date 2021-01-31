@@ -245,9 +245,10 @@ class Parser {
         m_Err();
     }
     void m_Err() {
-        char x[19];
-        std::sprintf(x, "Syntax Error at %zu", m_Pos);
-        throw std::runtime_error(x);
+        std::stringstream ss;
+        ss << "Syntax Error at " << m_Pos << "invalid expression \""
+           << m_Get().value << '"';
+        throw std::runtime_error(ss.str());
     }
 
    public:
