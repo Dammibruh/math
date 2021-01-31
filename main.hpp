@@ -8,7 +8,18 @@
 #include <string>
 #include <vector>
 
-enum class Tokens { Digit, Lparen, Rparen, Plus, Minus, Mult, Div, Pow, Mod };
+enum class Tokens {
+    Digit,
+    Lparen,
+    Rparen,
+    Plus,
+    Minus,
+    Mult,
+    Div,
+    Pow,
+    Mod,
+    Sqrt
+};
 struct TokenHandler {
     std::string value;
     Tokens token;
@@ -18,20 +29,38 @@ class Lexer {
     std::vector<TokenHandler> m_Tokens;
     std::size_t m_Pos = 0;
     std::string m_Src;
-    bool m_IsDigit(char c) { return (c >= '0' && c <= '9'); }
+    bool m_IsDigit(char c) { return (c >= '0' && c <= '9') || c == '.'; }
     char m_Get() { return m_Src[m_Pos]; }
+    char m_Peek() { return m_Src[m_Pos + 1]; }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
+    char m_Prev() {
+        if (m_Pos == 0)
+            return m_Get();
+        else
+            return m_Src[m_Pos - 1];
+    }
     void m_AddTok(Tokens tok, const std::string& val) {
         m_Tokens.push_back(TokenHandler{.value = val, .token = tok});
     }
     std::string m_GetDigit() {
         std::string temp{};
         while (m_IsDigit(m_Get())) {
+            if (m_Get() == '.' && temp.find('.') == std::string::npos) {
+                temp += '.';
+                m_Advance();
+            }
             temp += m_Get();
             m_Advance();
         }
         m_Advance(-1);
         return temp;
+    }
+
+    bool m_IsSqrt(char a, char b) {
+        char t[2];
+        t[0] = a;
+        t[1] = b;
+        return std::strcmp(t, "\u221A") == 0;
     }
 
    public:
@@ -51,7 +80,13 @@ class Lexer {
                     m_AddTok(Tokens::Plus, "+");
                     break;
                 case '-':
-                    m_AddTok(Tokens::Minus, "-");
+                    if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get())) {
+                        m_AddTok(Tokens::Minus, "-");
+                    } else if (!m_IsDigit(m_Prev())) {
+                        m_Advance();
+                        auto out = '-' + m_GetDigit();
+                        m_AddTok(Tokens::Digit, out);
+                    }
                     break;
                 case '/':
                     m_AddTok(Tokens::Div, "/");
@@ -79,13 +114,14 @@ std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Plus, "PLUS"},     {Tokens::Minus, "MINUS"},
     {Tokens::Lparen, "LPAREN"}, {Tokens::Rparen, "RPAREN"},
     {Tokens::Digit, "DIGIT"},   {Tokens::Pow, "POW"},
-    {Tokens::Mod, "MOD"}};
+    {Tokens::Mod, "MOD"},       {Tokens::Sqrt, "SQRT"}};
 
 // ASTs
-enum class Op { Minus, Plus, Div, Mult, Pow, Mod };
+enum class Op { Minus, Plus, Div, Mult, Pow, Mod, Sqrt };
 enum class AstType { Number, BinaryOp, Expr };
-std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},
-                           {Op::Mult, '*'},  {Op::Pow, '^'},  {Op::Mod, '%'}};
+std::map<Op, char> ops_str{
+    {Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},       {Op::Mult, '*'},
+    {Op::Pow, '^'},   {Op::Mod, '%'},  {Op::Sqrt, u'\u221A'}};
 struct Expr {
     virtual std::string str() = 0;
     virtual AstType type() const { return AstType::Expr; }
@@ -125,6 +161,12 @@ class Parser {
 
     TokenHandler m_Get() { return m_Src[m_Pos]; }
     bool not_eof() { return m_Pos < m_Src.size(); }
+    bool m_IsDigit(const std::string& str) {
+        std::string::size_type count = 0;
+        for (auto& c : str)
+            if (std::isdigit(c) || c == '-' || c == '+') count++;
+        return count == str.size();
+    }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
     u_ptr m_ParseExpr() {
         u_ptr out = m_ParseTerm();
@@ -159,17 +201,28 @@ class Parser {
         return std::move(out);
     }
     u_ptr m_ParseSu() {
-        u_ptr out = m_ParseFactor();
+        u_ptr out = m_ParseOth();
         while (not_eof() &&
                (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
             if (m_Get().token == Tokens::Pow) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(
-                    Op::Pow, std::move(out), std::move(m_ParseFactor()));
+                out = std::make_unique<BinaryOpExpr>(Op::Pow, std::move(out),
+                                                     std::move(m_ParseOth()));
             } else if (m_Get().token == Tokens::Mod) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(
-                    Op::Mod, std::move(out), std::move(m_ParseFactor()));
+                out = std::make_unique<BinaryOpExpr>(Op::Mod, std::move(out),
+                                                     std::move(m_ParseOth()));
+            }
+        }
+        return std::move(out);
+    }
+    u_ptr m_ParseOth() {
+        u_ptr out = m_ParseFactor();
+        while (not_eof() && (m_Get().token == Tokens::Sqrt)) {
+            if (m_Get().token == Tokens::Sqrt) {
+                m_Advance();
+                out = std::make_unique<BinaryOpExpr>(Op::Sqrt, std::move(out),
+                                                     nullptr);
             }
         }
         return std::move(out);
@@ -193,8 +246,12 @@ class Parser {
             return std::make_unique<BinaryOpExpr>(
                 Op::Minus, std::move(m_ParseFactor()), nullptr);
         } else if (tok.token == Tokens::Digit) {
-            m_Advance();
-            return std::make_unique<Number>(std::stod(tok.value));
+            if (m_IsDigit(tok.value) && tok.value.size() > 0) {
+                m_Advance();
+                return std::make_unique<Number>(std::stod(tok.value));
+            } else {
+                m_Err();
+            }
         }
         m_Err();
     }
@@ -205,7 +262,12 @@ class Parser {
     }
 
    public:
-    Parser(const std::vector<TokenHandler>& _tok) : m_Src(_tok) {}
+    Parser(const std::vector<TokenHandler>& _tok) {
+        if (_tok.size() > 0)
+            m_Src = _tok;
+        else
+            throw std::runtime_error("invalid input");
+    }
     u_ptr parse() { return std::move(m_ParseExpr()); }
 };
 
@@ -235,6 +297,9 @@ class Interpreter {
         return Number(std::pow(visit(std::move(boe->lhs)).val,
                                visit(std::move(boe->rhs)).val));
     }
+    Number m_VisitSqrt(BinaryOpExpr* boe) {
+        return Number(std::sqrt(visit(std::move(boe->lhs)).val));
+    }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
@@ -263,6 +328,8 @@ class Interpreter {
                         return m_VisitPow(bopexpr);
                     case Op::Mod:
                         return m_VisitMod(bopexpr);
+                    case Op::Sqrt:
+                        return m_VisitSqrt(bopexpr);
                 }
             }
             case AstType::Number: {
