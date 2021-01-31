@@ -201,28 +201,17 @@ class Parser {
         return std::move(out);
     }
     u_ptr m_ParseSu() {
-        u_ptr out = m_ParseOth();
+        u_ptr out = m_ParseFactor();
         while (not_eof() &&
                (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
             if (m_Get().token == Tokens::Pow) {
                 m_Advance();
                 out = std::make_unique<BinaryOpExpr>(Op::Pow, std::move(out),
-                                                     std::move(m_ParseOth()));
+                                                     std::move(m_ParseFactor()));
             } else if (m_Get().token == Tokens::Mod) {
                 m_Advance();
                 out = std::make_unique<BinaryOpExpr>(Op::Mod, std::move(out),
-                                                     std::move(m_ParseOth()));
-            }
-        }
-        return std::move(out);
-    }
-    u_ptr m_ParseOth() {
-        u_ptr out = m_ParseFactor();
-        while (not_eof() && (m_Get().token == Tokens::Sqrt)) {
-            if (m_Get().token == Tokens::Sqrt) {
-                m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Sqrt, std::move(out),
-                                                     nullptr);
+                                                     std::move(m_ParseFactor()));
             }
         }
         return std::move(out);
@@ -232,7 +221,7 @@ class Parser {
         if (tok.token == Tokens::Lparen) {
             m_Advance();
             auto out = m_ParseExpr();
-            if (m_Get().token != Tokens::Rparen) {
+            if (m_Get().token != Tokens::Rparen || !not_eof()) {
                 m_Err();
             }
             m_Advance();
@@ -246,7 +235,7 @@ class Parser {
             return std::make_unique<BinaryOpExpr>(
                 Op::Minus, std::move(m_ParseFactor()), nullptr);
         } else if (tok.token == Tokens::Digit) {
-            if (m_IsDigit(tok.value) || tok.value.size() > 0) {
+            if (m_IsDigit(tok.value) || tok.value.size() > 0 || not_eof()) {
                 m_Advance();
                 return std::make_unique<Number>(std::stod(tok.value));
             } else {
