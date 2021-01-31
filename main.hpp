@@ -246,7 +246,7 @@ class Parser {
             return std::make_unique<BinaryOpExpr>(
                 Op::Minus, std::move(m_ParseFactor()), nullptr);
         } else if (tok.token == Tokens::Digit) {
-            if (m_IsDigit(tok.value) && tok.value.size() > 0) {
+            if (m_IsDigit(tok.value) || tok.value.size() > 0) {
                 m_Advance();
                 return std::make_unique<Number>(std::stod(tok.value));
             } else {
