@@ -34,8 +34,7 @@ class Interpreter {
             else
                 return Number(builtin[name]);
         } else {
-            throw std::runtime_error("use of undeclared identifier " +
-                                     ident->name);
+            throw std::runtime_error("use of undeclared identifier " + name);
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
