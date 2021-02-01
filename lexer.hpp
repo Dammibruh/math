@@ -80,7 +80,7 @@ class Lexer {
                     m_AddTok(Tokens::Mult, "*");
                     break;
                 case '+':
-                    m_AddTok(Tokens::Plus, "+");
+                    if (m_Pos > 0) m_AddTok(Tokens::Plus, "+");
                     break;
                 case '-':
                     if (m_Pos == 0) {

@@ -5,8 +5,11 @@
 
 class Interpreter {
     using u_ptr = std::unique_ptr<Expr>;
-    std::map<std::string, double> builtin{
-        {"pi", M_PI}, {"e", M_E}, {"tau", M_PI * 2}};
+    std::map<std::string, double> builtin{{"pi", M_PI},
+                                          {"e", M_E},
+                                          {"tau", M_PI * 2},
+                                          {"inf", INFINITY},
+                                          {"nan", NAN}};
     Number m_VisitAdd(BinaryOpExpr* boe) {
         return Number(visit(std::move(boe->lhs)).val +
                       visit(std::move(boe->rhs)).val);
