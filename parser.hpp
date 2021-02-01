@@ -98,8 +98,12 @@ class Parser {
             m_Advance();
             return std::make_unique<Identifier>(tok.value);
         } else if (tok.token == Tokens::Digit) {
-            m_Advance();
-            return std::make_unique<Number>(std::stod(tok.value));
+            try {
+                m_Advance();
+                return std::make_unique<Number>(std::stod(tok.value));
+            } catch (...) {
+                throw std::runtime_error("unkown expression");
+            }
         }
         m_Err();
     }
