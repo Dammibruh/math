@@ -83,13 +83,16 @@ class Lexer {
                     if (m_Pos > 0) m_AddTok(Tokens::Plus, "+");
                     break;
                 case '-':
-                    if (m_Pos == 0) {
+                    if (m_Pos == 0 || m_IsDigit(m_Src[m_Pos - 1]) ||
+                        m_IsDigit(m_Get())) {
                         if (m_IsDigit(m_Peek())) {
                             m_Advance();
                             m_AddTok(Tokens::Digit, '-' + m_GetDigit());
                         } else if (m_IsAlpha(m_Peek())) {
                             m_Advance();
                             m_AddTok(Tokens::Identifier, '-' + m_GetIdent());
+                        } else {
+                            m_AddTok(Tokens::Minus, "-");
                         }
                     } else {
                         m_AddTok(Tokens::Minus, "-");

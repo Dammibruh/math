@@ -86,9 +86,15 @@ class Parser {
             }
             m_Advance();
             return std::move(out);
+        } else if (tok.token == Tokens::Digit) {
+            if (m_IsDigit(tok.value) && !tok.value.empty()) {
+                m_Advance();
+                return std::make_unique<Number>(std::stod(tok.value));
+            } else {
+                m_Advance(-1);
+                m_Err();
+            }
         } else if (tok.token == Tokens::Plus) {
-            // we don't want a seg fault while trying to parse an operator at
-            // the beginning eg: +5
             if (m_Pos > 0) {
                 m_Advance();
                 return std::make_unique<BinaryOpExpr>(
@@ -110,13 +116,6 @@ class Parser {
         } else if (tok.token == Tokens::Identifier) {
             m_Advance();
             return std::make_unique<Identifier>(tok.value);
-        } else if (tok.token == Tokens::Digit) {
-            try {
-                m_Advance();
-                return std::make_unique<Number>(std::stod(tok.value));
-            } catch (...) {
-                throw std::runtime_error("unkown expression");
-            }
         }
         m_Err();
     }

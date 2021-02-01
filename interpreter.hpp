@@ -48,16 +48,7 @@ class Interpreter {
         return Number(std::pow(visit(std::move(boe->lhs)).val,
                                visit(std::move(boe->rhs)).val));
     }
-    Number m_VisitSqrt(BinaryOpExpr* boe) {
-        return Number(std::sqrt(visit(std::move(boe->lhs)).val));
-    }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
-    std::string m_GetIdent(const std::string& str) {
-        if (str[0] == '-')
-            return str.substr(1, str.size());
-        else
-            return str;
-    }
 
    public:
     Interpreter() = default;
@@ -68,7 +59,8 @@ class Interpreter {
                 break;
             }
             case AstType::BinaryOp: {
-                BinaryOpExpr* bopexpr = static_cast<BinaryOpExpr*>(expr.get());
+                BinaryOpExpr* bopexpr =
+                    static_cast<BinaryOpExpr*>(std::move(expr).get());
                 switch (bopexpr->op) {
                     default:
                         throw std::runtime_error("invalid operator");
@@ -88,7 +80,7 @@ class Interpreter {
                 }
             }
             case AstType::Number: {
-                return Number(static_cast<Number*>(expr.get())->val);
+                return m_VisitNumber(static_cast<Number*>(expr.get()));
             }
             case AstType::Identifier: {
                 return m_VisitIdent(static_cast<Identifier*>(expr.get()));

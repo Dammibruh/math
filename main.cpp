@@ -1,6 +1,9 @@
 #include "main.hpp"
 
 #include <cstdio>
+#include <iostream>
+#include <string>
+#include <utility>
 
 int main() {
 prog : {
