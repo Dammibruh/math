@@ -73,11 +73,16 @@ class Lexer {
                         m_AddTok(Tokens::Digit, m_GetDigit());
                     }
                     break;
-                case 'x':
-                    m_AddTok(Tokens::Mult, "x");
+                case '*':
+                    m_AddTok(Tokens::Mult, "*");
                     break;
                 case '+':
-                    m_AddTok(Tokens::Plus, "+");
+                    if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get())) {
+                        m_AddTok(Tokens::Plus, "+");
+                    } else if (!m_IsDigit(m_Prev())) {
+                        m_Advance();
+                        m_AddTok(Tokens::Digit, m_GetDigit());
+                    }
                     break;
                 case '-':
                     if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get())) {
@@ -120,7 +125,7 @@ std::map<Tokens, std::string_view> tokens_str{
 enum class Op { Minus, Plus, Div, Mult, Pow, Mod, Sqrt };
 enum class AstType { Number, BinaryOp, Expr };
 std::map<Op, char> ops_str{
-    {Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},       {Op::Mult, 'x'},
+    {Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},       {Op::Mult, '*'},
     {Op::Pow, '^'},   {Op::Mod, '%'},  {Op::Sqrt, u'\u221A'}};
 struct Expr {
     virtual std::string str() = 0;
@@ -160,7 +165,7 @@ class Parser {
     std::size_t m_Pos = 0;
 
     TokenHandler m_Get() { return m_Src[m_Pos]; }
-    bool not_eof() { return m_Pos < m_Src.size(); }
+    bool not_eof() { return m_Pos <= m_Src.size(); }
     bool m_IsDigit(const std::string& str) {
         std::string::size_type count = 0;
         for (auto& c : str)
@@ -221,7 +226,7 @@ class Parser {
         if (tok.token == Tokens::Lparen) {
             m_Advance();
             auto out = m_ParseExpr();
-            if (m_Get().token != Tokens::Rparen || !not_eof()) {
+            if (m_Get().token != Tokens::Rparen || m_Pos == m_Src.size()) {
                 m_Err();
             }
             m_Advance();
@@ -246,7 +251,7 @@ class Parser {
     }
     void m_Err() {
         std::stringstream ss;
-        ss << "Syntax Error at " << m_Pos << "invalid expression \""
+        ss << "Syntax Error at " << m_Pos << " invalid expression \""
            << m_Get().value << '"';
         throw std::runtime_error(ss.str());
     }
@@ -318,8 +323,6 @@ class Interpreter {
                         return m_VisitPow(bopexpr);
                     case Op::Mod:
                         return m_VisitMod(bopexpr);
-                    case Op::Sqrt:
-                        return m_VisitSqrt(bopexpr);
                 }
             }
             case AstType::Number: {
