@@ -3,7 +3,7 @@
 #include <cstdio>
 
 int main() {
-    std::string inp{"+e"};
+    std::string inp{"++e"};
     Lexer lexer(inp);
     auto lexed = lexer.lex();
     for (auto& tok : lexed)

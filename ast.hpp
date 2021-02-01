@@ -19,7 +19,7 @@ struct Number : Expr {
     Number(double x) : val(x) {}
     std::string str() override {
         char ch[19];
-        std::sprintf(ch, "<NUMBER:%d>", val);
+        std::sprintf(ch, "<NUMBER:%f>", val);
         std::string _val{ch};
         return _val;
     }
