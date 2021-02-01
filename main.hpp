@@ -81,7 +81,7 @@ class Lexer {
                         m_AddTok(Tokens::Plus, "+");
                     } else if (!m_IsDigit(m_Prev())) {
                         m_Advance();
-                        m_AddTok(Tokens::Digit, m_GetDigit());
+                        m_AddTok(Tokens::Digit, '+' + m_GetDigit());
                     }
                     break;
                 case '-':
@@ -89,8 +89,7 @@ class Lexer {
                         m_AddTok(Tokens::Minus, "-");
                     } else if (!m_IsDigit(m_Prev())) {
                         m_Advance();
-                        auto out = '-' + m_GetDigit();
-                        m_AddTok(Tokens::Digit, out);
+                        m_AddTok(Tokens::Digit, '-' + m_GetDigit());
                     }
                     break;
                 case '/':
@@ -226,11 +225,11 @@ class Parser {
         if (tok.token == Tokens::Lparen) {
             m_Advance();
             auto out = m_ParseExpr();
-            if (m_Get().token != Tokens::Rparen || m_Pos == m_Src.size()) {
+            if (m_Get().token != Tokens::Rparen) {
                 m_Err();
             }
             m_Advance();
-            return out;
+            return std::move(out);
         } else if (tok.token == Tokens::Plus) {
             m_Advance();
             return std::make_unique<BinaryOpExpr>(
@@ -240,10 +239,11 @@ class Parser {
             return std::make_unique<BinaryOpExpr>(
                 Op::Minus, std::move(m_ParseFactor()), nullptr);
         } else if (tok.token == Tokens::Digit) {
-            if (m_IsDigit(tok.value) || tok.value.size() > 0 || not_eof()) {
+            try {
                 m_Advance();
                 return std::make_unique<Number>(std::stod(tok.value));
-            } else {
+            } catch (...) {
+                m_Advance(-2);
                 m_Err();
             }
         }
