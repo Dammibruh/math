@@ -14,11 +14,17 @@ class Parser {
     std::size_t m_Pos = 0;
 
     TokenHandler m_Get() { return m_Src[m_Pos]; }
-    bool not_eof() { return m_Pos <= m_Src.size(); }
+    bool not_eof() { return m_Pos < m_Src.size(); }
     bool m_IsDigit(const std::string& str) {
         std::string::size_type count = 0;
         for (auto& c : str)
             if (std::isdigit(c) || c == '-' || c == '+') count++;
+        return count == str.size();
+    }
+    bool m_IsIdent(const std::string& str) {
+        std::string::size_type count = 0;
+        for (auto& c : str)
+            if (std::isalpha(c) || c == '_') count++;
         return count == str.size();
     }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
@@ -92,13 +98,8 @@ class Parser {
             m_Advance();
             return std::make_unique<Identifier>(tok.value);
         } else if (tok.token == Tokens::Digit) {
-            try {
-                m_Advance();
-                return std::make_unique<Number>(std::stod(tok.value));
-            } catch (...) {
-                m_Advance(-2);
-                m_Err();
-            }
+            m_Advance();
+            return std::make_unique<Number>(std::stod(tok.value));
         }
         m_Err();
     }

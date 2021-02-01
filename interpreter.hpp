@@ -24,10 +24,18 @@ class Interpreter {
                       visit(std::move(boe->rhs)).val);
     }
     Number m_VisitIdent(Identifier* ident) {
-        if (builtin.find(ident->name) != builtin.end()) {
-            return Number(builtin[ident->name]);
+        bool is_negative = ident->name[0] == '-';
+        std::string name = is_negative
+                               ? ident->name.substr(1, ident->name.size())
+                               : ident->name;
+        if (builtin.find(name) != builtin.end()) {
+            if (is_negative)
+                return Number(-builtin[name]);
+            else
+                return Number(builtin[name]);
         } else {
-            throw std::runtime_error("undeclared idenrifier " + ident->name);
+            throw std::runtime_error("use of undeclared identifier " +
+                                     ident->name);
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
@@ -42,6 +50,12 @@ class Interpreter {
         return Number(std::sqrt(visit(std::move(boe->lhs)).val));
     }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
+    std::string m_GetIdent(const std::string& str) {
+        if (str[0] == '-')
+            return str.substr(1, str.size());
+        else
+            return str;
+    }
 
    public:
     Interpreter() = default;

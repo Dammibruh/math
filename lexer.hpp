@@ -80,19 +80,19 @@ class Lexer {
                     m_AddTok(Tokens::Mult, "*");
                     break;
                 case '+':
-                    if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get())) {
-                        m_AddTok(Tokens::Plus, "+");
-                    } else if (!m_IsDigit(m_Prev())) {
-                        m_Advance();
-                        m_AddTok(Tokens::Digit, '+' + m_GetDigit());
-                    }
+                    m_AddTok(Tokens::Plus, "+");
                     break;
                 case '-':
-                    if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get())) {
+                    if (m_Pos == 0) {
+                        if (m_IsDigit(m_Peek())) {
+                            m_Advance();
+                            m_AddTok(Tokens::Digit, '-' + m_GetDigit());
+                        } else if (m_IsAlpha(m_Peek())) {
+                            m_Advance();
+                            m_AddTok(Tokens::Identifier, '-' + m_GetIdent());
+                        }
+                    } else {
                         m_AddTok(Tokens::Minus, "-");
-                    } else if (!m_IsDigit(m_Prev())) {
-                        m_Advance();
-                        m_AddTok(Tokens::Digit, '-' + m_GetDigit());
                     }
                     break;
                 case '/':

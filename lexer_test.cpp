@@ -3,7 +3,7 @@
 #include <cstdio>
 
 int main() {
-    std::string inp{"sqrt(6-520)*29"};
+    std::string inp{"e-e"};
     Lexer lexer(inp);
     auto lexed = lexer.lex();
     for (auto& tok : lexed)
