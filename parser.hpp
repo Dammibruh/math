@@ -18,7 +18,7 @@ class Parser {
     bool m_IsDigit(const std::string& str) {
         std::string::size_type count = 0;
         for (auto& c : str)
-            if (std::isdigit(c) || c == '-' || c == '+') count++;
+            if (!std::isdigit(c) || c == '-' || c == '+') return false;
         return count == str.size();
     }
     bool m_IsIdent(const std::string& str) {
@@ -87,13 +87,8 @@ class Parser {
             m_Advance();
             return std::move(out);
         } else if (tok.token == Tokens::Digit) {
-            if (m_IsDigit(tok.value) && !tok.value.empty()) {
-                m_Advance();
-                return std::make_unique<Number>(std::stod(tok.value));
-            } else {
-                m_Advance(-1);
-                m_Err();
-            }
+            m_Advance();
+            return std::make_unique<Number>(std::stod(tok.value));
         } else if (tok.token == Tokens::Plus) {
             if (m_Pos > 0) {
                 m_Advance();
@@ -103,9 +98,6 @@ class Parser {
                 m_Err();
             }
         } else if (tok.token == Tokens::Minus) {
-            // we don't want a seg fault while trying to parse an operator at
-            // the beginning eg: -5 since negative numbers are handled by the
-            // lexer
             if (m_Pos > 0) {
                 m_Advance();
                 return std::make_unique<BinaryOpExpr>(
