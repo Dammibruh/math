@@ -87,13 +87,26 @@ class Parser {
             m_Advance();
             return std::move(out);
         } else if (tok.token == Tokens::Plus) {
-            m_Advance();
-            return std::make_unique<BinaryOpExpr>(
-                Op::Plus, std::move(m_ParseFactor()), nullptr);
+            // we don't want a seg fault while trying to parse an operator at
+            // the beginning eg: +5
+            if (m_Pos > 0) {
+                m_Advance();
+                return std::make_unique<BinaryOpExpr>(
+                    Op::Plus, std::move(m_ParseFactor()), nullptr);
+            } else {
+                m_Err();
+            }
         } else if (tok.token == Tokens::Minus) {
-            m_Advance();
-            return std::make_unique<BinaryOpExpr>(
-                Op::Minus, std::move(m_ParseFactor()), nullptr);
+            // we don't want a seg fault while trying to parse an operator at
+            // the beginning eg: -5 since negative numbers are handled by the
+            // lexer
+            if (m_Pos > 0) {
+                m_Advance();
+                return std::make_unique<BinaryOpExpr>(
+                    Op::Minus, std::move(m_ParseFactor()), nullptr);
+            } else {
+                m_Err();
+            }
         } else if (tok.token == Tokens::Identifier) {
             m_Advance();
             return std::make_unique<Identifier>(tok.value);
