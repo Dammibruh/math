@@ -6,7 +6,7 @@
 class Interpreter {
     using u_ptr = std::unique_ptr<Expr>;
     std::map<std::string, double> builtin{{"pi", M_PI},
-                                          {"e", M_E},
+                                          {"eu", M_E},
                                           {"tau", M_PI * 2},
                                           {"inf", INFINITY},
                                           {"nan", NAN}};

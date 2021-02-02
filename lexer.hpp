@@ -18,7 +18,8 @@ enum class Tokens {
     Identifier,
     Delim,
     Comma,
-    Unkown
+    Unkown,
+    Edelim  // 1e10
 };
 struct TokenHandler {
     std::string value;
@@ -31,10 +32,10 @@ class Lexer {
     std::string m_Src;
     bool m_IsDigit(char c) { return (c >= '0' && c <= '9'); }
     bool m_IsAlpha(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
     }
     char m_Get() { return m_Src[m_Pos]; }
-    char m_Peek() { return m_Src[m_Pos + 1]; }
+    char m_Peek(std::size_t x = 1) { return m_Src[m_Pos + x]; }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
     char m_Prev() {
         if (m_Pos == 0)
@@ -75,7 +76,7 @@ class Lexer {
                         m_AddTok(Tokens::Digit, m_GetDigit());
                     } else if (m_IsAlpha(m_Get())) {
                         m_AddTok(Tokens::Identifier, m_GetIdent());
-                    } else {
+                    } else if (!std::isspace(m_Get())) {
                         m_AddTok(Tokens::Unkown, std::string{m_Get()});
                     }
                     break;
@@ -96,10 +97,17 @@ class Lexer {
                         m_Advance();  // eat the '-' char
                         auto out = '-' + m_GetIdent();
                         m_AddTok(Tokens::Identifier, out);
+                        break;
                     } else if (m_IsDigit(m_Peek())) {
                         m_Advance();
                         auto out = '-' + m_GetDigit();
                         m_AddTok(Tokens::Digit, out);
+                        break;
+                    } else if (m_Peek() == '-' && (!m_IsDigit(m_Peek(2)) ||
+                                                   !m_IsAlpha(m_Peek(2)))) {
+                        m_AddTok(Tokens::Plus, "+");
+                    } else {
+                        m_AddTok(Tokens::Minus, "-");
                     }
                     break;
                 case '/':
@@ -130,6 +138,13 @@ class Lexer {
                     // 1'000'000'000
                     m_AddTok(Tokens::Delim, "'");
                     break;
+                case 'e':
+                    if (m_IsAlpha(m_Peek())) {
+                        m_AddTok(Tokens::Identifier, m_GetIdent());
+                    } else {
+                        m_AddTok(Tokens::Edelim, "e");
+                    }
+                    break;
             }
             m_Advance();
         }
@@ -150,5 +165,6 @@ std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Identifier, "IDENTIFIER"},
     {Tokens::Delim, "DELIM"},
     {Tokens::Dot, "DOT"},
-    {Tokens::Unkown, "UNKOWN"}};
+    {Tokens::Unkown, "UNKOWN"},
+    {Tokens::Edelim, "EDELIM"}};
 

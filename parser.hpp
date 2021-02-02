@@ -23,9 +23,11 @@ class Parser {
     std::string m_GetDigit() {
         std::string temp{};
         bool is_decimal{};
+        bool contains_e{};
         while (not_eof() && (m_Get().token == Tokens::Digit ||
                              m_Get().token == Tokens::Dot ||
-                             m_Get().token == Tokens::Delim)) {
+                             m_Get().token == Tokens::Delim ||
+                             m_Get().token == Tokens::Edelim)) {
             if (m_Get().token == Tokens::Digit) {
                 temp += m_Get().value;
             } else if (m_Get().token == Tokens::Dot) {
@@ -35,12 +37,19 @@ class Parser {
                     temp += m_Get().value;
                     is_decimal = true;
                 }
-            } else if (m_Get().token == Tokens::Delim) {
+            } else if (m_Get().token == Tokens::Edelim) {
+                if (contains_e) {
+                    m_Err();
+                } else {
+                    temp += m_Get().value;
+                    contains_e = true;
+                }
             }
             m_Advance();
         }
         return temp;
     }
+    TokenHandler m_Peek() { return m_Src[m_Pos]; }
     bool m_IsIdent(const std::string& str) {
         std::string::size_type count = 0;
         for (auto& c : str)
