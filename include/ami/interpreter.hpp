@@ -3,6 +3,7 @@
 
 #include "parser.hpp"
 
+namespace ami {
 class Interpreter {
     using u_ptr = std::unique_ptr<Expr>;
     std::map<std::string, double> builtin{{"pi", M_PI},
@@ -10,6 +11,7 @@ class Interpreter {
                                           {"tau", M_PI * 2},
                                           {"inf", INFINITY},
                                           {"nan", NAN}};
+    std::map<std::string, double>* userdefined;
     Number m_VisitAdd(BinaryOpExpr* boe) {
         return Number(visit(std::move(boe->lhs)).val +
                       visit(std::move(boe->rhs)).val);
@@ -36,8 +38,23 @@ class Interpreter {
                 return Number(-builtin[name]);
             else
                 return Number(builtin[name]);
+        } else if (userdefined->find(name) != userdefined->end()) {
+            if (is_negative)
+                return Number(-(*userdefined)[name]);
+            else
+                return Number((*userdefined)[name]);
         } else {
             throw std::runtime_error("use of undeclared identifier " + name);
+        }
+    }
+    Number m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
+        bool is_builtin = builtin.find(udi->name) != builtin.end();
+        if (is_builtin) {
+            throw std::runtime_error("Can't assign to built-in identifier \"" +
+                                     udi->name + "\"");
+        } else if (userdefined != nullptr) {
+            (*userdefined)[udi->name] = visit(std::move(udi->value)).val;
+            return Number(NAN);
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
@@ -51,7 +68,8 @@ class Interpreter {
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
-    Interpreter() = default;
+    Interpreter(std::map<std::string, double>* scope = nullptr)
+        : userdefined(scope) {}
     Number visit(u_ptr expr) {
         switch (expr->type()) {
             default: {
@@ -85,6 +103,11 @@ class Interpreter {
             case AstType::Identifier: {
                 return m_VisitIdent(static_cast<Identifier*>(expr.get()));
             }
+            case AstType::UserDefinedIdentifier: {
+                return m_VisitUserDefinedIdentifier(
+                    static_cast<UserDefinedIdentifier*>(expr.get()));
+            }
         }
     }
 };
+}  // namespace ami

@@ -5,6 +5,7 @@
 
 #include "lexer.hpp"
 
+namespace ami {
 enum class Op { Minus, Plus, Div, Mult, Pow, Mod };
 enum class AstType {
     Number,
@@ -12,7 +13,9 @@ enum class AstType {
     Expr,
     Identifier,
     FunctionCall,
-    Function
+    Function,
+    UserDefinedIdentifier,
+    UserDefinedFunction
 };
 std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},
                            {Op::Mult, '*'},  {Op::Pow, '^'},  {Op::Mod, '%'}};
@@ -51,10 +54,23 @@ struct Identifier : public Expr {
     Identifier(const std::string& name) : name(name) {}
     std::string str() override {
         std::stringstream ss;
-        ss << '<' << name << '>';
+        ss << "<Identifier name={" << name << "}>";
         return ss.str();
     }
     AstType type() const override { return AstType::Identifier; }
+};
+struct UserDefinedIdentifier : public Expr {
+    std::string name;
+    std::unique_ptr<Expr> value;
+    UserDefinedIdentifier(const std::string& name, std::unique_ptr<Expr> val)
+        : name(name), value(std::move(val)) {}
+    std::string str() override {
+        std::stringstream ss;
+        ss << "<UserDefinedIdentifier name={" << name << "}, value={"
+           << value->str() << "}>";
+        return ss.str();
+    }
+    AstType type() const override { return AstType::UserDefinedIdentifier; }
 };
 struct FunctionCall : public Expr {
     std::vector<std::unique_ptr<Expr>> arguments;
@@ -77,9 +93,11 @@ struct FunctionCall : public Expr {
     }
 };
 struct Function : public Expr {
+    std::vector<std::unique_ptr<Expr>> arguments;
     std::string name, body;
-    Function(std::string_view name, std::string_view body)
-        : name(name), body(body) {}
+    Function(std::string_view name, std::string_view body,
+             std::vector<std::unique_ptr<Expr>> args)
+        : name(name), body(body), arguments(std::move(args)) {}
     AstType type() const override { return AstType::Function; }
     std::string str() override {
         std::string str;
@@ -87,3 +105,4 @@ struct Function : public Expr {
         return str;
     }
 };
+}  // namespace ami

@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+namespace ami {
 enum class Tokens {
     Digit,
     Lparen,
@@ -19,7 +20,9 @@ enum class Tokens {
     Delim,
     Comma,
     Unkown,
-    Edelim  // 1e10
+    Assign,
+    Edelim,  // 1e10
+    Semicolon
 };
 struct TokenHandler {
     std::string value;
@@ -145,6 +148,12 @@ class Lexer {
                         m_AddTok(Tokens::Edelim, "e");
                     }
                     break;
+                case '=':
+                    m_AddTok(Tokens::Assign, "=");
+                    break;
+                case ';':
+                    m_AddTok(Tokens::Semicolon, ";");
+                    break;
             }
             m_Advance();
         }
@@ -166,5 +175,8 @@ std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Delim, "DELIM"},
     {Tokens::Dot, "DOT"},
     {Tokens::Unkown, "UNKOWN"},
-    {Tokens::Edelim, "EDELIM"}};
+    {Tokens::Edelim, "EDELIM"},
+    {Tokens::Assign, "ASSIGN"},
+    {Tokens::Semicolon, "SEMICOLON"}};
 
+}  // namespace ami

@@ -1,13 +1,12 @@
 #pragma once
 #include <cmath>
 #include <cstdio>
-#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 
 #include "ast.hpp"
-// parser
+namespace ami {
 class Parser {
     using u_ptr = std::unique_ptr<Expr>;
     std::vector<TokenHandler> m_Src;
@@ -19,6 +18,34 @@ class Parser {
         for (auto& c : str)
             if (!std::isdigit(c) && c != '-') return false;
         return true;
+    }
+    std::string m_ParseFunctionBody() {
+        std::string body{};
+        while (not_eof() && m_Get().token != Tokens::Semicolon) {
+            body += m_Get().value;
+            m_Advance();
+        }
+        return body;
+    }
+    std::vector<u_ptr> m_ParseFunctionArgs() {
+        std::vector<u_ptr> args;
+        while (not_eof() && (m_Get().token == Tokens::Comma &&
+                             m_Get().token != Tokens::Rparen)) {
+            if (m_Get().token == Tokens::Comma) {
+                m_Advance();
+            } else {
+                args.push_back(std::move(m_ParseExpr()));
+            }
+        }
+        return std::move(args);
+    }
+    u_ptr m_ParseIdentAssign() {
+        u_ptr value = m_ParseExpr();
+        while (not_eof() && m_Get().token != Tokens::Semicolon) {
+            m_Advance();
+            value = m_ParseExpr();
+        }
+        return std::move(value);
     }
     std::string m_GetDigit() {
         std::string temp{};
@@ -49,7 +76,7 @@ class Parser {
         }
         return temp;
     }
-    TokenHandler m_Peek() { return m_Src[m_Pos]; }
+    TokenHandler m_Peek() { return m_Src[m_Pos + 1]; }
     bool m_IsIdent(const std::string& str) {
         std::string::size_type count = 0;
         for (auto& c : str)
@@ -107,7 +134,6 @@ class Parser {
     }
     u_ptr m_ParseFactor() {
         TokenHandler tok = m_Get();
-        std::cout << "tok value: " << tok.value << '\n';
         if (tok.token == Tokens::Lparen) {
             m_Advance();
             auto out = m_ParseExpr();
@@ -139,8 +165,16 @@ class Parser {
                 m_Err();
             }
         } else if (tok.token == Tokens::Identifier) {
-            m_Advance();
-            return std::make_unique<Identifier>(tok.value);
+            if (m_Peek().token == Tokens::Assign) {
+                m_Advance(2);  // skip the '='
+                std::string name = tok.value;
+                auto body = m_ParseIdentAssign();
+                return std::make_unique<UserDefinedIdentifier>(name,
+                                                               std::move(body));
+            } else {
+                m_Advance();
+                return std::make_unique<Identifier>(tok.value);
+            }
         } else {
             m_Err();
         }
@@ -163,3 +197,4 @@ class Parser {
     u_ptr parse() { return std::move(m_ParseExpr()); }
 };
 
+}  // namespace ami
