@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <map>
 #include <string>
 #include <vector>
@@ -9,12 +10,15 @@ enum class Tokens {
     Rparen,
     Plus,
     Minus,
+    Dot,
     Mult,
     Div,
     Pow,
     Mod,
     Identifier,
-    Comma
+    Delim,
+    Comma,
+    Unkown
 };
 struct TokenHandler {
     std::string value;
@@ -25,9 +29,9 @@ class Lexer {
     std::vector<TokenHandler> m_Tokens;
     std::size_t m_Pos = 0;
     std::string m_Src;
-    bool m_IsDigit(char c) { return (c >= '0' && c <= '9') || c == '.'; }
+    bool m_IsDigit(char c) { return (c >= '0' && c <= '9'); }
     bool m_IsAlpha(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
     }
     char m_Get() { return m_Src[m_Pos]; }
     char m_Peek() { return m_Src[m_Pos + 1]; }
@@ -53,10 +57,6 @@ class Lexer {
     std::string m_GetDigit() {
         std::string temp{};
         while (m_IsDigit(m_Get())) {
-            if (m_Get() == '.' && temp.find('.') == std::string::npos) {
-                temp += '.';
-                m_Advance();
-            }
             temp += m_Get();
             m_Advance();
         }
@@ -71,37 +71,29 @@ class Lexer {
             switch (m_Src[m_Pos]) {
                 default:
                     if (m_IsDigit(m_Get())) {
+                        // if the current pos is a digit get the full digit
                         m_AddTok(Tokens::Digit, m_GetDigit());
                     } else if (m_IsAlpha(m_Get())) {
                         m_AddTok(Tokens::Identifier, m_GetIdent());
+                    } else {
+                        m_AddTok(Tokens::Unkown, std::string{m_Get()});
                     }
                     break;
                 case '*':
                     m_AddTok(Tokens::Mult, "*");
                     break;
                 case '+':
-                    if (m_Pos > 0) m_AddTok(Tokens::Plus, "+");
+                    m_AddTok(Tokens::Plus, "+");
                     break;
                 case '-':
-                    /*if (m_Pos == 0 || m_IsDigit(m_Prev()) ||
-                        m_IsDigit(m_Get())) {
-                        if (m_IsDigit(m_Peek())) {
-                            m_Advance();
-                            m_AddTok(Tokens::Digit, '-' + m_GetDigit());
-                        } else if (m_IsAlpha(m_Peek())) {
-                            m_Advance();
-                            m_AddTok(Tokens::Identifier, '-' + m_GetIdent());
-                        } else if (m_IsDigit(m_Prev())) {
-                            m_AddTok(Tokens::Minus, "-");
-                        }
-                    } else {
-                        m_AddTok(Tokens::Minus, "-");
-                    }*/
+                    // check if the previous and the next token are a
+                    // ident/digit add minus token otherwise add it as a
+                    // negative value
                     if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get()) ||
                         m_IsAlpha(m_Src[m_Pos - 1]) || m_IsAlpha(m_Get())) {
                         m_AddTok(Tokens::Minus, "-");
                     } else if (m_IsAlpha(m_Peek())) {
-                        m_Advance();
+                        m_Advance();  // eat the '-' char
                         auto out = '-' + m_GetIdent();
                         m_AddTok(Tokens::Identifier, out);
                     } else if (m_IsDigit(m_Peek())) {
@@ -126,7 +118,17 @@ class Lexer {
                     m_AddTok(Tokens::Mod, "%");
                     break;
                 case ',':
+                    // for function args
                     m_AddTok(Tokens::Comma, ",");
+                    break;
+                case '.':
+                    // for decimals
+                    m_AddTok(Tokens::Dot, ".");
+                    break;
+                case '\'':
+                    // delim for number to improve readability eg :
+                    // 1'000'000'000
+                    m_AddTok(Tokens::Delim, "'");
                     break;
             }
             m_Advance();
@@ -145,5 +147,8 @@ std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Pow, "POW"},
     {Tokens::Mod, "MOD"},
     {Tokens::Comma, "COMMA"},
-    {Tokens::Identifier, "IDENTIFIER"}};
+    {Tokens::Identifier, "IDENTIFIER"},
+    {Tokens::Delim, "DELIM"},
+    {Tokens::Dot, "DOT"},
+    {Tokens::Unkown, "UNKOWN"}};
 

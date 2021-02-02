@@ -16,10 +16,30 @@ class Parser {
     TokenHandler m_Get() { return m_Src[m_Pos]; }
     bool not_eof() { return m_Pos < m_Src.size(); }
     bool m_IsDigit(const std::string& str) {
-        std::string::size_type count = 0;
         for (auto& c : str)
-            if (!std::isdigit(c) || c == '-' || c == '+') return false;
-        return count == str.size();
+            if (!std::isdigit(c) && c != '-') return false;
+        return true;
+    }
+    std::string m_GetDigit() {
+        std::string temp{};
+        bool is_decimal{};
+        while (not_eof() && (m_Get().token == Tokens::Digit ||
+                             m_Get().token == Tokens::Dot ||
+                             m_Get().token == Tokens::Delim)) {
+            if (m_Get().token == Tokens::Digit) {
+                temp += m_Get().value;
+            } else if (m_Get().token == Tokens::Dot) {
+                if (is_decimal) {
+                    m_Err();
+                } else {
+                    temp += m_Get().value;
+                    is_decimal = true;
+                }
+            } else if (m_Get().token == Tokens::Delim) {
+            }
+            m_Advance();
+        }
+        return temp;
     }
     bool m_IsIdent(const std::string& str) {
         std::string::size_type count = 0;
@@ -78,6 +98,7 @@ class Parser {
     }
     u_ptr m_ParseFactor() {
         TokenHandler tok = m_Get();
+        std::cout << "tok value: " << tok.value << '\n';
         if (tok.token == Tokens::Lparen) {
             m_Advance();
             auto out = m_ParseExpr();
@@ -87,8 +108,11 @@ class Parser {
             m_Advance();
             return std::move(out);
         } else if (tok.token == Tokens::Digit) {
-            m_Advance();
-            return std::make_unique<Number>(std::stod(tok.value));
+            if (m_IsDigit(tok.value)) {
+                return std::make_unique<Number>(std::stod(m_GetDigit()));
+            } else {
+                m_Err();
+            }
         } else if (tok.token == Tokens::Plus) {
             if (m_Pos > 0) {
                 m_Advance();
@@ -108,12 +132,14 @@ class Parser {
         } else if (tok.token == Tokens::Identifier) {
             m_Advance();
             return std::make_unique<Identifier>(tok.value);
+        } else {
+            m_Err();
         }
-        m_Err();
     }
-    void m_Err() {
+    void m_Err() { m_ThrowErr("Syntax Error"); }
+    void m_ThrowErr(std::string_view msg) {
         std::stringstream ss;
-        ss << "Syntax Error at " << m_Pos << " invalid expression \""
+        ss << msg << " at " << m_Pos << " invalid expression \""
            << m_Get().value << '"';
         throw std::runtime_error(ss.str());
     }

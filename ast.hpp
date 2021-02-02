@@ -6,7 +6,14 @@
 #include "lexer.hpp"
 
 enum class Op { Minus, Plus, Div, Mult, Pow, Mod };
-enum class AstType { Number, BinaryOp, Expr, Identifier, FunctionCall };
+enum class AstType {
+    Number,
+    BinaryOp,
+    Expr,
+    Identifier,
+    FunctionCall,
+    Function
+};
 std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},
                            {Op::Mult, '*'},  {Op::Pow, '^'},  {Op::Mod, '%'}};
 struct Expr {
@@ -18,10 +25,9 @@ struct Number : Expr {
     double val;
     Number(double x) : val(x) {}
     std::string str() override {
-        char ch[19];
-        std::sprintf(ch, "<NUMBER:%f>", val);
-        std::string _val{ch};
-        return _val;
+        std::string out;
+        out += ("<NUMBER:" + std::to_string(val) + '>');
+        return out;
     }
     AstType type() const override { return AstType::Number; }
 };
@@ -49,4 +55,35 @@ struct Identifier : public Expr {
         return ss.str();
     }
     AstType type() const override { return AstType::Identifier; }
+};
+struct FunctionCall : public Expr {
+    std::vector<std::unique_ptr<Expr>> arguments;
+    std::string name;
+    FunctionCall(std::string_view name, std::vector<std::unique_ptr<Expr>> args)
+        : name(name), arguments(std::move(args)) {}
+    AstType type() const override { return AstType::FunctionCall; }
+    std::string str() override {
+        std::stringstream ss;
+        ss << "<FunctionCall name={" << name << "}, args={";
+        if (arguments.empty()) {
+            ss << "null}>";
+        } else {
+            for (auto& arg : arguments) {
+                ss << arg->str() << ", ";
+            }
+            ss << "}>";
+        }
+        return ss.str();
+    }
+};
+struct Function : public Expr {
+    std::string name, body;
+    Function(std::string_view name, std::string_view body)
+        : name(name), body(body) {}
+    AstType type() const override { return AstType::Function; }
+    std::string str() override {
+        std::string str;
+        str += ("<Function name={" + name + "}>");
+        return str;
+    }
 };
