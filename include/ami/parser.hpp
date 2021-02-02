@@ -21,11 +21,14 @@ class Parser {
     }
     std::string m_ParseFunctionBody() {
         std::string body{};
-        while (not_eof() && m_Get().token != Tokens::Semicolon) {
+        while (not_eof() || m_Get().token == Tokens::Semicolon) {
             body += m_Get().value;
             m_Advance();
+            if (m_Get().token == Tokens::Semicolon) {
+                m_Advance();
+                return std::move(body);
+            }
         }
-        return body;
     }
     std::vector<u_ptr> m_ParseFunctionArgs() {
         std::vector<u_ptr> args;
@@ -176,9 +179,8 @@ class Parser {
                 m_Advance();
                 return std::make_unique<Identifier>(tok.value);
             }
-        } else {
-            m_Err();
         }
+        m_Err();
     }
     void m_Err() { m_ThrowErr("Syntax Error"); }
     void m_ThrowErr(std::string_view msg) {
@@ -195,7 +197,13 @@ class Parser {
         else
             throw std::runtime_error("invalid input");
     }
-    u_ptr parse() { return std::move(m_ParseExpr()); }
+    u_ptr parse() {
+        u_ptr out;
+        while (not_eof()) {
+            out = std::move(m_ParseExpr());
+        }
+        return std::move(out);
+    }
 };
 
 }  // namespace ami

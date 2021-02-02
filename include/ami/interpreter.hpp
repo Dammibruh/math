@@ -1,5 +1,7 @@
 #pragma once
 #include <cmath>
+#include <iostream>
+#include <memory>
 
 #include "parser.hpp"
 
@@ -30,31 +32,37 @@ class Interpreter {
     }
     Number m_VisitIdent(Identifier* ident) {
         bool is_negative = ident->name[0] == '-';
-        std::string name = is_negative
-                               ? ident->name.substr(1, ident->name.size())
-                               : ident->name;
+        std::string name;
+        if (is_negative) {
+            name = std::string(ident->name.begin() + 1, ident->name.end());
+        }
         if (builtin.find(name) != builtin.end()) {
             if (is_negative)
-                return Number(-builtin[name]);
+                return Number(-(builtin.at(name)));
             else
-                return Number(builtin[name]);
-        } else if (userdefined->find(name) != userdefined->end()) {
+                return Number(builtin.at(name));
+        } else if (userdefined != nullptr &&
+                   userdefined->find(name) != userdefined->end()) {
+            std::cout << "user defined\n";
             if (is_negative)
-                return Number(-(*userdefined)[name]);
+                return Number(-userdefined->at(name));
             else
-                return Number((*userdefined)[name]);
+                return Number(userdefined->at(name));
         } else {
-            throw std::runtime_error("use of undeclared identifier " + name);
+            throw std::runtime_error(
+                std::string("use of undeclared identifier ") + name);
         }
     }
     Number m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
         bool is_builtin = builtin.find(udi->name) != builtin.end();
+        std::cout << "defining an ident\n";
         if (is_builtin) {
             throw std::runtime_error("Can't assign to built-in identifier \"" +
                                      udi->name + "\"");
         } else if (userdefined != nullptr) {
-            (*userdefined)[udi->name] = visit(std::move(udi->value)).val;
-            return Number(NAN);
+            (*userdefined)[std::move(udi->name)] =
+                visit(std::move(udi->value)).val;
+            return Number(0);
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
@@ -97,7 +105,7 @@ class Interpreter {
                 }
             }
             case AstType::Number: {
-                return m_VisitNumber(static_cast<Number*>(expr.get()));
+                return Number(static_cast<Number*>(expr.get())->val);
             }
             case AstType::Identifier: {
                 return m_VisitIdent(static_cast<Identifier*>(expr.get()));

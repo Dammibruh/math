@@ -93,8 +93,9 @@ class Lexer {
                     // check if the previous and the next token are a
                     // ident/digit add minus token otherwise add it as a
                     // negative value
-                    if (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get()) ||
-                        m_IsAlpha(m_Src[m_Pos - 1]) || m_IsAlpha(m_Get())) {
+                    if (m_Src[m_Pos - 1] != 'e' &&
+                        (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get()) ||
+                         m_IsAlpha(m_Src[m_Pos - 1]) || m_IsAlpha(m_Get()))) {
                         m_AddTok(Tokens::Minus, "-");
                     } else if (m_IsAlpha(m_Peek())) {
                         m_Advance();  // eat the '-' char
