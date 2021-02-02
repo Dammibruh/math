@@ -69,7 +69,7 @@ class Lexer {
     }
 
    public:
-    Lexer(const std::string& text) : m_Src(text) {}
+    explicit Lexer(const std::string& text) : m_Src(text) {}
     std::vector<TokenHandler> lex() {
         while (m_Pos < m_Src.size()) {
             switch (m_Src[m_Pos]) {
@@ -160,7 +160,7 @@ class Lexer {
         return m_Tokens;
     }
 };
-std::map<Tokens, std::string_view> tokens_str{
+static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Div, "DIV"},
     {Tokens::Mult, "MULT"},
     {Tokens::Plus, "PLUS"},

@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdio>
+#include <map>
 #include <memory>
 #include <sstream>
+#include <string>
 
 #include "lexer.hpp"
 
@@ -17,8 +19,9 @@ enum class AstType {
     UserDefinedIdentifier,
     UserDefinedFunction
 };
-std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'}, {Op::Div, '/'},
-                           {Op::Mult, '*'},  {Op::Pow, '^'},  {Op::Mod, '%'}};
+static std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'},
+                                  {Op::Div, '/'},   {Op::Mult, '*'},
+                                  {Op::Pow, '^'},   {Op::Mod, '%'}};
 struct Expr {
     virtual std::string str() = 0;
     virtual AstType type() const { return AstType::Expr; }
@@ -26,7 +29,7 @@ struct Expr {
 };
 struct Number : Expr {
     double val;
-    Number(double x) : val(x) {}
+    explicit Number(double x) : val(x) {}
     std::string str() override {
         std::string out;
         out += ("<NUMBER:" + std::to_string(val) + '>');
@@ -73,8 +76,8 @@ struct UserDefinedIdentifier : public Expr {
     AstType type() const override { return AstType::UserDefinedIdentifier; }
 };
 struct FunctionCall : public Expr {
-    std::vector<std::unique_ptr<Expr>> arguments;
     std::string name;
+    std::vector<std::unique_ptr<Expr>> arguments;
     FunctionCall(std::string_view name, std::vector<std::unique_ptr<Expr>> args)
         : name(name), arguments(std::move(args)) {}
     AstType type() const override { return AstType::FunctionCall; }
@@ -93,8 +96,8 @@ struct FunctionCall : public Expr {
     }
 };
 struct Function : public Expr {
-    std::vector<std::unique_ptr<Expr>> arguments;
     std::string name, body;
+    std::vector<std::unique_ptr<Expr>> arguments;
     Function(std::string_view name, std::string_view body,
              std::vector<std::unique_ptr<Expr>> args)
         : name(name), body(body), arguments(std::move(args)) {}

@@ -158,6 +158,7 @@ class Parser {
             }
         } else if (tok.token == Tokens::Minus) {
             if (m_Pos > 0) {
+                // we don't want to consider negative numbers as an operation
                 m_Advance();
                 return std::make_unique<BinaryOpExpr>(
                     Op::Minus, std::move(m_ParseFactor()), nullptr);
@@ -188,7 +189,7 @@ class Parser {
     }
 
    public:
-    Parser(const std::vector<TokenHandler>& _tok) {
+    explicit Parser(const std::vector<TokenHandler>& _tok) {
         if (_tok.size() > 0)
             m_Src = _tok;
         else

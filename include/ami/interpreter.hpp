@@ -68,13 +68,12 @@ class Interpreter {
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
-    Interpreter(std::map<std::string, double>* scope = nullptr)
+    explicit Interpreter(std::map<std::string, double>* scope = nullptr)
         : userdefined(scope) {}
     Number visit(u_ptr expr) {
         switch (expr->type()) {
             default: {
                 throw std::runtime_error("invalid expr");
-                break;
             }
             case AstType::BinaryOp: {
                 BinaryOpExpr* bopexpr =
