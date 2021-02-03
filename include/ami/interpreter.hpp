@@ -9,29 +9,25 @@
 #include "parser.hpp"
 
 namespace ami {
-static inline std::map<std::string, double> builtin{{"pi", M_PI},
-                                                    {"eu", M_E},
-                                                    {"tau", M_PI * 2},
-                                                    {"inf", INFINITY},
-                                                    {"nan", NAN}};
-static inline std::map<std::string, double> userdefined;
 class Interpreter {
+    std::map<std::string, double> builtin{{"pi", M_PI},
+                                          {"eu", M_E},
+                                          {"tau", M_PI * 2},
+                                          {"inf", INFINITY},
+                                          {"nan", NAN}};
+    std::map<std::string, double>* userdefined;
     using u_ptr = std::shared_ptr<Expr>;
     Number m_VisitAdd(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val +
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val + visit((boe->rhs)).val);
     }
     Number m_VisitSub(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val -
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val - visit((boe->rhs)).val);
     }
     Number m_VisitDiv(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val /
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val / visit((boe->rhs)).val);
     }
     Number m_VisitMult(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val *
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val * visit((boe->rhs)).val);
     }
     Number m_VisitIdent(Identifier* ident) {
         bool is_negative = (ident->name[0] == '-');
@@ -44,12 +40,12 @@ class Interpreter {
                 return Number(-(builtin.at(name)));
             else
                 return Number(builtin.at(name));
-        } else if ((!userdefined.empty()) &&
-                   (userdefined.find(name) != userdefined.end())) {
+        } else if ((!userdefined->empty()) &&
+                   (userdefined->find(name) != userdefined->end())) {
             if (is_negative)
-                return Number(-userdefined.at(name));
+                return Number(-userdefined->at(name));
             else
-                return Number(userdefined.at(name));
+                return Number(userdefined->at(name));
         } else {
             throw std::runtime_error(
                 std::string("use of undeclared identifier ") + name);
@@ -61,24 +57,21 @@ class Interpreter {
             throw std::runtime_error("Can't assign to built-in identifier \"" +
                                      udi->name + "\"");
         } else {
-            userdefined[std::move(udi->name)] =
-                visit(std::move(udi->value)).val;
+            userdefined->operator[](udi->name) = visit((udi->value)).val;
             return Number(0);
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
-        return Number(std::fmod(visit(std::move(boe->lhs)).val,
-                                visit(std::move(boe->rhs)).val));
+        return Number(std::fmod(visit((boe->lhs)).val, visit((boe->rhs)).val));
     }
     Number m_VisitPow(BinaryOpExpr* boe) {
-        return Number(std::pow(visit(std::move(boe->lhs)).val,
-                               visit(std::move(boe->rhs)).val));
+        return Number(std::pow(visit((boe->lhs)).val, visit((boe->rhs)).val));
     }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
-    /* explicit Interpreter(std::map<std::string, double>* scope = nullptr)
-         : userdefined(scope) {}*/
+    explicit Interpreter(std::map<std::string, double>* scope = nullptr)
+        : userdefined(scope) {}
     Interpreter() = default;
     Number visit(u_ptr expr) {
         std::cout << expr->str() << '\n';
