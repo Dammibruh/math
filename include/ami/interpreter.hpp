@@ -18,20 +18,16 @@ static inline std::map<std::string, double> userdefined;
 class Interpreter {
     using u_ptr = std::shared_ptr<Expr>;
     Number m_VisitAdd(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val +
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val + visit((boe->rhs)).val);
     }
     Number m_VisitSub(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val -
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val - visit((boe->rhs)).val);
     }
     Number m_VisitDiv(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val /
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val / visit((boe->rhs)).val);
     }
     Number m_VisitMult(BinaryOpExpr* boe) {
-        return Number(visit(std::move(boe->lhs)).val *
-                      visit(std::move(boe->rhs)).val);
+        return Number(visit((boe->lhs)).val * visit((boe->rhs)).val);
     }
     Number m_VisitIdent(Identifier* ident) {
         bool is_negative = (ident->name[0] == '-');
@@ -61,19 +57,19 @@ class Interpreter {
             throw std::runtime_error("Can't assign to built-in identifier \"" +
                                      udi->name + "\"");
         } else {
-            auto val = visit(std::move(udi->value)).val;
-            auto name = udi->name;
+            auto val = visit((udi->value)).val;
+            auto name = std::string(udi->name);
             userdefined[name] = val;
-            throw std::runtime_error(name + " = " + std::to_string(val));
+            std::stringstream ss;
+            ss << name << " = " << val;
+            throw std::runtime_error(ss.str());
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
-        return Number(std::fmod(visit(std::move(boe->lhs)).val,
-                                visit(std::move(boe->rhs)).val));
+        return Number(std::fmod(visit((boe->lhs)).val, visit((boe->rhs)).val));
     }
     Number m_VisitPow(BinaryOpExpr* boe) {
-        return Number(std::pow(visit(std::move(boe->lhs)).val,
-                               visit(std::move(boe->rhs)).val));
+        return Number(std::pow(visit((boe->lhs)).val, visit((boe->rhs)).val));
     }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
