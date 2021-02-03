@@ -38,8 +38,7 @@ class Parser {
             m_Advance();
             return (args);
         } else {
-            while (not_eof() && (/*m_Get().token == Tokens::Comma ||*/
-                                 m_Peek().token != Tokens::Rparen)) {
+            while (not_eof() && (m_Peek().token != Tokens::Rparen)) {
                 if (m_Get().token == Tokens::Comma) {
                     m_Advance();
                 } else {
@@ -144,7 +143,6 @@ class Parser {
     }
     u_ptr m_ParseFactor() {
         TokenHandler tok = m_Get();
-        std::cout << "tok value: " << tok.value << '\n';
         if (tok.token == Tokens::Lparen) {
             m_Advance();
             auto out = (m_ParseExpr());

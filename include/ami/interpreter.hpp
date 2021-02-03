@@ -61,9 +61,10 @@ class Interpreter {
             throw std::runtime_error("Can't assign to built-in identifier \"" +
                                      udi->name + "\"");
         } else {
-            userdefined[std::move(udi->name)] =
-                visit(std::move(udi->value)).val;
-            return Number(0);
+            auto val = visit(std::move(udi->value)).val;
+            auto name = udi->name;
+            userdefined[name] = val;
+            throw std::runtime_error(name + " = " + std::to_string(val));
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
