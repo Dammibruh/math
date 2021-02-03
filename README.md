@@ -1,5 +1,5 @@
 # ami
-An advanved math interpreter written in C++
+A simple math interpreter written in C++
 supports math constants and user defined identifiers
 
 ## expressions
