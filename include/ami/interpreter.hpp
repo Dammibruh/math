@@ -1,19 +1,22 @@
 #pragma once
 #include <cmath>
+#include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <string>
+#include <unordered_map>
 
 #include "parser.hpp"
 
 namespace ami {
+static inline std::map<std::string, double> builtin{{"pi", M_PI},
+                                                    {"eu", M_E},
+                                                    {"tau", M_PI * 2},
+                                                    {"inf", INFINITY},
+                                                    {"nan", NAN}};
+static inline std::map<std::string, double> userdefined;
 class Interpreter {
-    using u_ptr = std::unique_ptr<Expr>;
-    std::map<std::string, double> builtin{{"pi", M_PI},
-                                          {"eu", M_E},
-                                          {"tau", M_PI * 2},
-                                          {"inf", INFINITY},
-                                          {"nan", NAN}};
-    std::map<std::string, double>* userdefined;
+    using u_ptr = std::shared_ptr<Expr>;
     Number m_VisitAdd(BinaryOpExpr* boe) {
         return Number(visit(std::move(boe->lhs)).val +
                       visit(std::move(boe->rhs)).val);
@@ -31,23 +34,22 @@ class Interpreter {
                       visit(std::move(boe->rhs)).val);
     }
     Number m_VisitIdent(Identifier* ident) {
-        bool is_negative = ident->name[0] == '-';
-        std::string name;
-        if (is_negative) {
-            name = std::string(ident->name.begin() + 1, ident->name.end());
+        bool is_negative = (ident->name[0] == '-');
+        std::string name = ident->name;
+        if (is_negative && name.size() > 1) {
+            name = std::string(name.begin() + 1, name.end());
         }
         if (builtin.find(name) != builtin.end()) {
             if (is_negative)
                 return Number(-(builtin.at(name)));
             else
                 return Number(builtin.at(name));
-        } else if (userdefined != nullptr &&
-                   userdefined->find(name) != userdefined->end()) {
-            std::cout << "user defined\n";
+        } else if ((!userdefined.empty()) &&
+                   (userdefined.find(name) != userdefined.end())) {
             if (is_negative)
-                return Number(-userdefined->at(name));
+                return Number(-userdefined.at(name));
             else
-                return Number(userdefined->at(name));
+                return Number(userdefined.at(name));
         } else {
             throw std::runtime_error(
                 std::string("use of undeclared identifier ") + name);
@@ -55,12 +57,11 @@ class Interpreter {
     }
     Number m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
         bool is_builtin = builtin.find(udi->name) != builtin.end();
-        std::cout << "defining an ident\n";
         if (is_builtin) {
             throw std::runtime_error("Can't assign to built-in identifier \"" +
                                      udi->name + "\"");
-        } else if (userdefined != nullptr) {
-            (*userdefined)[std::move(udi->name)] =
+        } else {
+            userdefined[std::move(udi->name)] =
                 visit(std::move(udi->value)).val;
             return Number(0);
         }
@@ -76,16 +77,17 @@ class Interpreter {
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
-    explicit Interpreter(std::map<std::string, double>* scope = nullptr)
-        : userdefined(scope) {}
+    /* explicit Interpreter(std::map<std::string, double>* scope = nullptr)
+         : userdefined(scope) {}*/
+    Interpreter() = default;
     Number visit(u_ptr expr) {
+        std::cout << expr->str() << '\n';
         switch (expr->type()) {
             default: {
                 throw std::runtime_error("invalid expr");
             }
             case AstType::BinaryOp: {
-                BinaryOpExpr* bopexpr =
-                    static_cast<BinaryOpExpr*>(std::move(expr).get());
+                BinaryOpExpr* bopexpr = static_cast<BinaryOpExpr*>(expr.get());
                 switch (bopexpr->op) {
                     default:
                         throw std::runtime_error("invalid operator");
@@ -105,7 +107,7 @@ class Interpreter {
                 }
             }
             case AstType::Number: {
-                return Number(static_cast<Number*>(expr.get())->val);
+                return m_VisitNumber(static_cast<Number*>(expr.get()));
             }
             case AstType::Identifier: {
                 return m_VisitIdent(static_cast<Identifier*>(expr.get()));
@@ -116,5 +118,6 @@ class Interpreter {
             }
         }
     }
+    ~Interpreter() = default;
 };
 }  // namespace ami

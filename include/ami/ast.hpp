@@ -38,10 +38,11 @@ struct Number : Expr {
     AstType type() const override { return AstType::Number; }
 };
 struct BinaryOpExpr : public Expr {
-    std::unique_ptr<Expr> lhs, rhs;
+    std::shared_ptr<Expr> lhs, rhs;
     Op op;
-    BinaryOpExpr(Op c, std::unique_ptr<Expr> _lhs, std::unique_ptr<Expr> _rhs)
-        : lhs(std::move(_lhs)), rhs(std::move(_rhs)), op(c) {}
+    BinaryOpExpr(Op c, const std::shared_ptr<Expr>& _lhs,
+                 const std::shared_ptr<Expr>& _rhs)
+        : lhs(_lhs), rhs(_rhs), op(c) {}
     std::string str() override {
         std::stringstream ss;
         std::string lhs_str = lhs != nullptr ? lhs->str() : "null";
@@ -64,9 +65,10 @@ struct Identifier : public Expr {
 };
 struct UserDefinedIdentifier : public Expr {
     std::string name;
-    std::unique_ptr<Expr> value;
-    UserDefinedIdentifier(const std::string& name, std::unique_ptr<Expr> val)
-        : name(name), value(std::move(val)) {}
+    std::shared_ptr<Expr> value;
+    UserDefinedIdentifier(const std::string& name,
+                          const std::shared_ptr<Expr>& val)
+        : name(name), value(val) {}
     std::string str() override {
         std::stringstream ss;
         ss << "<UserDefinedIdentifier name={" << name << "}, value={"
@@ -77,9 +79,10 @@ struct UserDefinedIdentifier : public Expr {
 };
 struct FunctionCall : public Expr {
     std::string name;
-    std::vector<std::unique_ptr<Expr>> arguments;
-    FunctionCall(std::string_view name, std::vector<std::unique_ptr<Expr>> args)
-        : name(name), arguments(std::move(args)) {}
+    std::vector<std::shared_ptr<Expr>> arguments;
+    FunctionCall(std::string_view name,
+                 const std::vector<std::shared_ptr<Expr>>& args)
+        : name(name), arguments(args) {}
     AstType type() const override { return AstType::FunctionCall; }
     std::string str() override {
         std::stringstream ss;
@@ -97,10 +100,10 @@ struct FunctionCall : public Expr {
 };
 struct Function : public Expr {
     std::string name, body;
-    std::vector<std::unique_ptr<Expr>> arguments;
+    std::vector<std::shared_ptr<Expr>> arguments;
     Function(std::string_view name, std::string_view body,
-             std::vector<std::unique_ptr<Expr>> args)
-        : name(name), body(body), arguments(std::move(args)) {}
+             const std::vector<std::shared_ptr<Expr>>& args)
+        : name(name), body(body), arguments(args) {}
     AstType type() const override { return AstType::Function; }
     std::string str() override {
         std::string str;

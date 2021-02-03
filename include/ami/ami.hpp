@@ -13,7 +13,8 @@ struct EvalInterface {
 double eval(const EvalInterface& ei) {
     ami::Lexer lexer(ei.expression);
     ami::Parser parser(lexer.lex());
-    ami::Interpreter inter(ei.scope);
-    return inter.visit(std::move(parser.parse())).val;
+    // ami::Interpreter inter(ei.scope);
+    ami::Interpreter inter;
+    return inter.visit(parser.parse()).val;
 }
 }  // namespace ami

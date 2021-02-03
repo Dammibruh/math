@@ -1,6 +1,7 @@
 #pragma once
 #include <cmath>
 #include <cstdio>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -8,9 +9,10 @@
 #include "ast.hpp"
 namespace ami {
 class Parser {
-    using u_ptr = std::unique_ptr<Expr>;
+    using u_ptr = std::shared_ptr<Expr>;
     std::vector<TokenHandler> m_Src;
     std::size_t m_Pos = 0;
+    bool is_in_func_args{};
 
     TokenHandler m_Get() { return m_Src[m_Pos]; }
     bool not_eof() { return m_Pos < m_Src.size(); }
@@ -26,29 +28,34 @@ class Parser {
             m_Advance();
             if (m_Get().token == Tokens::Semicolon) {
                 m_Advance();
-                return std::move(body);
+                return body;
             }
         }
     }
     std::vector<u_ptr> m_ParseFunctionArgs() {
-        std::vector<u_ptr> args;
-        while (not_eof() && (m_Get().token == Tokens::Comma &&
-                             m_Get().token != Tokens::Rparen)) {
-            if (m_Get().token == Tokens::Comma) {
-                m_Advance();
-            } else {
-                args.push_back(std::move(m_ParseExpr()));
+        std::vector<u_ptr> args{};
+        if (m_Get().token == Tokens::Rparen) {
+            m_Advance();
+            return (args);
+        } else {
+            while (not_eof() && (/*m_Get().token == Tokens::Comma ||*/
+                                 m_Peek().token != Tokens::Rparen)) {
+                if (m_Get().token == Tokens::Comma) {
+                    m_Advance();
+                } else {
+                    args.push_back((m_ParseExpr()));
+                }
             }
+            return (args);
         }
-        return std::move(args);
     }
     u_ptr m_ParseIdentAssign() {
-        u_ptr value = m_ParseExpr();
+        u_ptr value = (m_ParseExpr());
         while (not_eof() && m_Get().token != Tokens::Semicolon) {
             m_Advance();
-            value = m_ParseExpr();
+            value = (m_ParseExpr());
         }
-        return std::move(value);
+        return (value);
     }
     std::string m_GetDigit() {
         std::string temp{};
@@ -88,83 +95,85 @@ class Parser {
     }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
     u_ptr m_ParseExpr() {
-        u_ptr out = m_ParseTerm();
+        u_ptr out = (m_ParseTerm());
         while (not_eof() && (m_Get().token == Tokens::Plus ||
                              m_Get().token == Tokens::Minus)) {
             if (m_Get().token == Tokens::Plus) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Plus, std::move(out),
-                                                     std::move(m_ParseTerm()));
+                out = std::make_shared<BinaryOpExpr>(Op::Plus, (out),
+                                                     (m_ParseTerm()));
             } else if (m_Get().token == Tokens::Minus) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Minus, std::move(out),
-                                                     std::move(m_ParseTerm()));
+                out = std::make_shared<BinaryOpExpr>(Op::Minus, (out),
+                                                     (m_ParseTerm()));
             }
         }
-        return std::move(out);
+        return (out);
     }
     u_ptr m_ParseTerm() {
-        u_ptr out = m_ParseSu();
+        u_ptr out = (m_ParseSu());
         while (not_eof() && (m_Get().token == Tokens::Mult ||
                              m_Get().token == Tokens::Div)) {
             if (m_Get().token == Tokens::Mult) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Mult, std::move(out),
-                                                     std::move(m_ParseSu()));
+                out = std::make_shared<BinaryOpExpr>(Op::Mult, (out),
+                                                     (m_ParseSu()));
             } else if (m_Get().token == Tokens::Div) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(Op::Div, std::move(out),
-                                                     std::move(m_ParseSu()));
+                out = std::make_shared<BinaryOpExpr>(Op::Div, (out),
+                                                     (m_ParseSu()));
             }
         }
-        return std::move(out);
+        return (out);
     }
     u_ptr m_ParseSu() {
-        u_ptr out = m_ParseFactor();
+        u_ptr out = (m_ParseFactor());
         while (not_eof() &&
                (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
             if (m_Get().token == Tokens::Pow) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(
-                    Op::Pow, std::move(out), std::move(m_ParseFactor()));
+                out = std::make_shared<BinaryOpExpr>(Op::Pow, (out),
+                                                     (m_ParseFactor()));
             } else if (m_Get().token == Tokens::Mod) {
                 m_Advance();
-                out = std::make_unique<BinaryOpExpr>(
-                    Op::Mod, std::move(out), std::move(m_ParseFactor()));
+                out = std::make_shared<BinaryOpExpr>(Op::Mod, (out),
+                                                     (m_ParseFactor()));
             }
         }
-        return std::move(out);
+        return (out);
     }
     u_ptr m_ParseFactor() {
         TokenHandler tok = m_Get();
+        std::cout << "tok value: " << tok.value << '\n';
         if (tok.token == Tokens::Lparen) {
             m_Advance();
-            auto out = m_ParseExpr();
-            if (m_Get().token != Tokens::Rparen) {
+            auto out = (m_ParseExpr());
+            if (m_Get().token != Tokens::Rparen && !is_in_func_args) {
                 m_Err();
             }
             m_Advance();
-            return std::move(out);
+            return (out);
         } else if (tok.token == Tokens::Digit) {
             if (m_IsDigit(tok.value)) {
-                return std::make_unique<Number>(std::stod(m_GetDigit()));
+                return std::make_shared<Number>(std::stod(m_GetDigit()));
             } else {
                 m_Err();
             }
         } else if (tok.token == Tokens::Plus) {
             if (m_Pos > 0) {
                 m_Advance();
-                return std::make_unique<BinaryOpExpr>(
-                    Op::Plus, std::move(m_ParseFactor()), nullptr);
+                return std::make_shared<BinaryOpExpr>(
+                    Op::Plus, (m_ParseFactor()), nullptr);
             } else {
                 m_Err();
             }
         } else if (tok.token == Tokens::Minus) {
             if (m_Pos > 0) {
-                // we don't want to consider negative numbers as an operation
+                // we don't want to consider negative numbers as an
+                // operation
                 m_Advance();
-                return std::make_unique<BinaryOpExpr>(
-                    Op::Minus, std::move(m_ParseFactor()), nullptr);
+                return std::make_shared<BinaryOpExpr>(
+                    Op::Minus, (m_ParseFactor()), nullptr);
             } else {
                 m_Err();
             }
@@ -172,15 +181,28 @@ class Parser {
             if (m_Peek().token == Tokens::Assign) {
                 m_Advance(2);  // skip the '='
                 std::string name = tok.value;
-                auto body = m_ParseIdentAssign();
-                return std::make_unique<UserDefinedIdentifier>(name,
-                                                               std::move(body));
+                auto body = (m_ParseIdentAssign());
+                return std::make_shared<UserDefinedIdentifier>(name, (body));
+            } else if (m_Peek().token == Tokens::Lparen) {
+                m_Advance(2);  // skip the '('
+                std::string name = tok.value;
+                is_in_func_args = true;
+                auto args = (m_ParseFunctionArgs());
+                return std::make_shared<FunctionCall>(name, (args));
             } else {
                 m_Advance();
-                return std::make_unique<Identifier>(tok.value);
+                return std::make_shared<Identifier>(tok.value);
             }
+        } else if (tok.token == Tokens::Comma) {
+            if (is_in_func_args) m_Advance();
+        } else if (tok.token == Tokens::Rparen) {
+            if (is_in_func_args) {
+                m_Advance();
+                is_in_func_args = false;
+            }
+        } else {
+            m_Err();
         }
-        m_Err();
     }
     void m_Err() { m_ThrowErr("Syntax Error"); }
     void m_ThrowErr(std::string_view msg) {
@@ -200,9 +222,9 @@ class Parser {
     u_ptr parse() {
         u_ptr out;
         while (not_eof()) {
-            out = std::move(m_ParseExpr());
+            out = (m_ParseExpr());
         }
-        return std::move(out);
+        return (out);
     }
 };
 
