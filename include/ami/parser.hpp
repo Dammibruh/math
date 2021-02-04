@@ -14,7 +14,9 @@ class Parser {
     std::size_t m_Pos = 0;
     bool is_in_func_args = false;
 
-    TokenHandler m_Get() { return m_Src[m_Pos]; }
+    TokenHandler m_Get() {
+        return m_Src.at(m_Pos >= m_Src.size() ? m_Src.size() - 1 : m_Pos);
+    }
     bool not_eof() { return m_Pos < m_Src.size(); }
     bool m_IsDigit(const std::string& str) {
         for (auto& c : str)
@@ -41,7 +43,7 @@ class Parser {
                 } else if (!not_eof()) {
                     throw std::runtime_error(
                         "EOF while parsing function arguments " +
-                        std::to_string(m_Pos));
+                        m_Get().value);
                 } else {
                     args.push_back(m_ParseExpr());
                 }
