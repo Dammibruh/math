@@ -12,7 +12,7 @@ class Parser {
     using ptr_t = std::shared_ptr<Expr>;
     std::vector<TokenHandler> m_Src;
     std::size_t m_Pos = 0;
-    bool is_in_func_args{};
+    bool is_in_func_args = false;
 
     TokenHandler m_Get() { return m_Src[m_Pos]; }
     bool not_eof() { return m_Pos < m_Src.size(); }
@@ -34,19 +34,24 @@ class Parser {
     }
     std::vector<ptr_t> m_ParseFunctionArgs() {
         std::vector<ptr_t> args{};
-        if (m_Get().token == Tokens::Rparen) {
-            m_Advance();
-            return args;
-        } else {
-            while (not_eof() && (m_Peek().token != Tokens::Rparen)) {
+        if (m_Get().token != Tokens::Rparen) {
+            do {
                 if (m_Get().token == Tokens::Comma) {
                     m_Advance();
+                } else if (!not_eof()) {
+                    throw std::runtime_error(
+                        "EOF while parsing function arguments " +
+                        std::to_string(m_Pos));
                 } else {
                     args.push_back(m_ParseExpr());
                 }
-            }
-            return args;
+            } while (m_Get().token != Tokens::Rparen);
         }
+        if (m_Get().token != Tokens::Rparen) {
+            throw std::runtime_error("expected ')' after arguments list");
+        }
+        m_Advance();
+        return args;
     }
     ptr_t m_ParseIdentAssign() {
         ptr_t value = m_ParseExpr();
@@ -92,7 +97,13 @@ class Parser {
             if (std::isalpha(c) || c == '_') count++;
         return count == str.size();
     }
-    void m_Advance(std::size_t x = 1) { m_Pos += x; }
+    void m_Advance(std::size_t x = 1) {
+        if (m_Pos >= 0 && m_Pos < m_Src.size())
+            m_Pos += x;
+        else
+            return;
+    }
+
     ptr_t m_ParseExpr() {
         ptr_t out = m_ParseTerm();
         while (not_eof() && (m_Get().token == Tokens::Plus ||
@@ -144,20 +155,20 @@ class Parser {
         TokenHandler tok = m_Get();
         if (tok.token == Tokens::Lparen) {
             m_Advance();
-            auto out = m_ParseExpr();
+            ptr_t out = m_ParseExpr();
             if (m_Get().token != Tokens::Rparen && !is_in_func_args) {
                 m_Err();
             }
             m_Advance();
             return out;
         } else if (tok.token == Tokens::Digit) {
-            if (m_IsDigit(tok.value)) {
+            if (m_IsDigit(tok.value) && not_eof()) {
                 return std::make_shared<Number>(std::stod(m_GetDigit()));
             } else {
                 m_Err();
             }
         } else if (tok.token == Tokens::Plus) {
-            if (m_Pos > 0) {
+            if (m_Pos > 0 && not_eof()) {
                 m_Advance();
                 return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseFactor(),
                                                       nullptr);
@@ -165,7 +176,7 @@ class Parser {
                 m_Err();
             }
         } else if (tok.token == Tokens::Minus) {
-            if (m_Pos > 0) {
+            if (m_Pos > 0 && not_eof()) {
                 // we don't want to consider negative numbers as an
                 // operation
                 m_Advance();
@@ -178,25 +189,29 @@ class Parser {
             if (m_Peek().token == Tokens::Assign) {
                 m_Advance(2);  // skip the '='
                 std::string name = tok.value;
-                auto body = m_ParseIdentAssign();
+                ptr_t body = m_ParseIdentAssign();
                 return std::make_shared<UserDefinedIdentifier>(name, body);
             } else if (m_Peek().token == Tokens::Lparen) {
                 m_Advance(2);  // skip the '('
                 std::string name = tok.value;
                 is_in_func_args = true;
-                auto args = m_ParseFunctionArgs();
+                std::vector<ptr_t> args = m_ParseFunctionArgs();
+                is_in_func_args = false;
                 return std::make_shared<FunctionCall>(name, args);
             } else {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
             }
         } else if (tok.token == Tokens::Comma) {
-            if (is_in_func_args) m_Advance();
+            if (!is_in_func_args) {
+                m_Err();
+            }
         } else if (tok.token == Tokens::Rparen) {
             if (is_in_func_args) {
                 m_Advance();
                 is_in_func_args = false;
             }
+            m_Err();
         } else {
             m_Err();
         }
@@ -204,8 +219,8 @@ class Parser {
     void m_Err() { m_ThrowErr("Syntax Error"); }
     void m_ThrowErr(std::string_view msg) {
         std::stringstream ss;
-        ss << msg << " at " << m_Pos << " invalid expression \""
-           << m_Get().value << '"';
+        ss << msg << " at " << m_Pos << " invalid token \"" << m_Get().value
+           << '"';
         throw std::runtime_error(ss.str());
     }
 

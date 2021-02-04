@@ -10,3 +10,12 @@ or user defined by `my_iden = 5;`.
 Numbers can be negative/positive decimals/integers and can be written as
 `1'000'000` and `1e5` for better readablity.
 this project is still not yet stable, any issue or pr is appreciated
+
+### building
+```shell
+$ git clone https://github.com/dammi-i/ami
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make 
+```

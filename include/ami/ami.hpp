@@ -5,15 +5,15 @@
 #include "parser.hpp"
 
 namespace ami {
-using scope_t = std::map<std::string, double>;
-struct EvalInterface {
-    scope_t* scope = nullptr;
-    std::string expression;
-};
-double eval(const EvalInterface& ei) {
-    ami::Lexer lexer(ei.expression);
+double eval(const std::string& expression) {
+    ami::Lexer lexer(expression);
     ami::Parser parser(lexer.lex());
     ami::Interpreter inter;
     return inter.visit(parser.parse()).val;
 }
+namespace literals {
+double operator"" _eval(const char* expression, std::size_t) {
+    return eval(expression);
+}
+}  // namespace literals
 }  // namespace ami

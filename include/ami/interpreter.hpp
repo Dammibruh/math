@@ -76,10 +76,9 @@ class Interpreter {
    public:
     Interpreter() = default;
     Number visit(u_ptr expr) {
-        std::cout << expr->str() << '\n';
         switch (expr->type()) {
             default: {
-                throw std::runtime_error("invalid expr");
+                throw std::runtime_error("invalid expression");
             }
             case AstType::BinaryOp: {
                 BinaryOpExpr* bopexpr = static_cast<BinaryOpExpr*>(expr.get());
