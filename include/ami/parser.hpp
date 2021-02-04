@@ -92,7 +92,10 @@ class Parser {
         }
         return temp;
     }
-    TokenHandler m_Peek() { return m_Src[m_Pos + 1]; }
+    TokenHandler m_Peek() {
+        return m_Src.at((m_Pos + 1) >= m_Src.size() ? m_Src.size() - 1
+                                                    : m_Pos + 1);
+    }
     bool m_IsIdent(const std::string& str) {
         std::string::size_type count = 0;
         for (auto& c : str)
@@ -214,6 +217,9 @@ class Parser {
                 is_in_func_args = false;
             }
             m_Err();
+        } else if (tok.token == Tokens::Semicolon && not_eof()) {
+            m_Advance();
+            return m_ParseExpr();
         } else {
             m_Err();
         }
