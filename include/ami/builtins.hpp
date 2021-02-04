@@ -45,7 +45,7 @@ double b_min(const std::vector<ami::Number>& args) {
     return std::fmin(args.at(0).val, args.at(1).val);
 }
 double b_max(const std::vector<ami::Number>& args) {
-    return std::fmax(args.at(0).val, args.at(0).val);
+    return std::fmax(args.at(0).val, args.at(1).val);
 }
 double b_abs(const std::vector<ami::Number>& args) {
     return std::abs(args.at(0).val);
@@ -74,8 +74,8 @@ std::map<std::string, details::FunctionHandler> functions{
     {"cosh", details::FunctionHandler(1, details::b_cosh)},
     {"tanh", details::FunctionHandler(1, details::b_tan)},
     {"log", details::FunctionHandler(1, details::b_log)},
-    {"max", details::FunctionHandler(1, details::b_max)},
-    {"min", details::FunctionHandler(1, details::b_min)},
+    {"max", details::FunctionHandler(2, details::b_max)},
+    {"min", details::FunctionHandler(2, details::b_min)},
     {"abs", details::FunctionHandler(1, details::b_abs)},
     {"round", details::FunctionHandler(1, details::b_round)},
     {"floor", details::FunctionHandler(1, details::b_floor)},
