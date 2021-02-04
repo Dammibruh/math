@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
@@ -6,15 +7,14 @@
 #include <string>
 #include <unordered_map>
 
+#include "builtins.hpp"
 #include "parser.hpp"
 
 namespace ami {
-static inline std::map<std::string, double> builtin{{"pi", M_PI},
-                                                    {"eu", M_E},
-                                                    {"tau", M_PI * 2},
-                                                    {"inf", INFINITY},
-                                                    {"nan", NAN}};
-static inline std::map<std::string, double> userdefined;
+namespace scope {
+static std::map<std::string, double> userdefined;
+static std::map<std::string, double> userdefined_functions;
+}  // namespace scope
 class Interpreter {
     using u_ptr = std::shared_ptr<Expr>;
     Number m_VisitAdd(BinaryOpExpr* boe) {
@@ -35,34 +35,67 @@ class Interpreter {
         if (is_negative && name.size() > 1) {
             name = std::string(name.begin() + 1, name.end());
         }
-        if (builtin.find(name) != builtin.end()) {
+        if (ami::builtins::constants.find(name) !=
+            ami::builtins::constants.end()) {
             if (is_negative)
-                return Number(-(builtin.at(name)));
+                return Number(-(ami::builtins::constants.at(name)));
             else
-                return Number(builtin.at(name));
-        } else if ((!userdefined.empty()) &&
-                   (userdefined.find(name) != userdefined.end())) {
+                return Number(ami::builtins::constants.at(name));
+        } else if ((!scope::userdefined.empty()) &&
+                   (scope::userdefined.find(name) !=
+                    scope::userdefined.end())) {
             if (is_negative)
-                return Number(-userdefined.at(name));
+                return Number(-scope::userdefined.at(name));
             else
-                return Number(userdefined.at(name));
+                return Number(scope::userdefined.at(name));
         } else {
             throw std::runtime_error(
                 std::string("use of undeclared identifier ") + name);
         }
     }
     Number m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
-        bool is_builtin = builtin.find(udi->name) != builtin.end();
+        bool is_builtin = ami::builtins::constants.find(udi->name) !=
+                          ami::builtins::constants.end();
         if (is_builtin) {
             throw std::runtime_error("Can't assign to built-in identifier \"" +
                                      udi->name + "\"");
         } else {
             auto val = visit((udi->value)).val;
             auto name = std::string(udi->name);
-            userdefined[name] = val;
+            scope::userdefined[name] = val;
             std::stringstream ss;
             ss << name << " = " << val;
             throw std::runtime_error(ss.str());
+        }
+    }
+    Number m_VisitFunction(FunctionCall* fc) {
+        bool is_negative = fc->name[0] == '-';
+        std::string name =
+            is_negative ? std::string(fc->name.begin() + 1, fc->name.end())
+                        : fc->name;
+        auto get_builtin = ami::builtins::functions.find(name);
+        bool is_builtin = get_builtin != ami::builtins::functions.end();
+        if (is_builtin) {
+            std::vector<std::shared_ptr<ami::Expr>> args = fc->arguments;
+            std::vector<Number> parsed_args;
+            if (args.size() != get_builtin->second.args_count) {
+                throw std::runtime_error(
+                    "mismatched arguments for function call '" + fc->name +
+                    "', called with " + std::to_string(fc->arguments.size()) +
+                    " argument, expected " +
+                    std::to_string(get_builtin->second.args_count));
+            }
+            std::for_each(args.begin(), args.end(),
+                          [&parsed_args, this](auto& arg) {
+                              parsed_args.push_back(visit(arg));
+                          });
+            if (is_negative)
+                return Number(-(get_builtin->second.callback(parsed_args)));
+            else
+                return Number(get_builtin->second.callback(parsed_args));
+        } else {
+            throw std::runtime_error("use of undeclared function '" + name +
+                                     "'");
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
@@ -109,6 +142,9 @@ class Interpreter {
             case AstType::UserDefinedIdentifier: {
                 return m_VisitUserDefinedIdentifier(
                     static_cast<UserDefinedIdentifier*>(expr.get()));
+            }
+            case AstType::FunctionCall: {
+                return m_VisitFunction(static_cast<FunctionCall*>(expr.get()));
             }
         }
     }

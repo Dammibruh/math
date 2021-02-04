@@ -1,0 +1,85 @@
+#pragma once
+#include <cmath>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "ast.hpp"
+
+namespace ami {
+namespace builtins {
+namespace details {
+struct FunctionHandler {
+    using func_t = double (*)(const std::vector<ami::Number>&);
+    std::size_t args_count;
+    func_t callback;
+    FunctionHandler(std::size_t args_count, func_t func)
+        : args_count(args_count), callback(func) {}
+};
+double b_sqrt(const std::vector<ami::Number>& args) {
+    return std::sqrt(args.at(0).val);
+}
+double b_sin(const std::vector<ami::Number>& args) {
+    return std::sin(args.at(0).val);
+}
+double b_cos(const std::vector<ami::Number>& args) {
+    return std::cos(args.at(0).val);
+}
+double b_tan(const std::vector<ami::Number>& args) {
+    return std::tan(args.at(0).val);
+}
+double b_sinh(const std::vector<ami::Number>& args) {
+    return std::sinh(args.at(0).val);
+}
+double b_cosh(const std::vector<ami::Number>& args) {
+    return std::cosh(args.at(0).val);
+}
+double b_tanh(const std::vector<ami::Number>& args) {
+    return std::tanh(args.at(0).val);
+}
+double b_log(const std::vector<ami::Number>& args) {
+    return std::log(args.at(0).val);
+}
+double b_min(const std::vector<ami::Number>& args) {
+    return std::fmin(args.at(0).val, args.at(1).val);
+}
+double b_max(const std::vector<ami::Number>& args) {
+    return std::fmax(args.at(0).val, args.at(0).val);
+}
+double b_abs(const std::vector<ami::Number>& args) {
+    return std::abs(args.at(0).val);
+}
+double b_round(const std::vector<ami::Number>& args) {
+    return std::round(args.at(0).val);
+}
+double b_ceil(const std::vector<ami::Number>& args) {
+    return std::ceil(args.at(0).val);
+}
+double b_floor(const std::vector<ami::Number>& args) {
+    return std::floor(args.at(0).val);
+}
+}  // namespace details
+std::map<std::string, double> constants{{"pi", M_PI},
+                                        {"tau", M_PI * 2},
+                                        {"inf", INFINITY},
+                                        {"nan", NAN},
+                                        {"eu", M_E}};
+std::map<std::string, details::FunctionHandler> functions{
+    {"sqrt", details::FunctionHandler(1, details::b_sqrt)},
+    {"sin", details::FunctionHandler(1, details::b_sin)},
+    {"cos", details::FunctionHandler(1, details::b_cos)},
+    {"tan", details::FunctionHandler(1, details::b_tan)},
+    {"sinh", details::FunctionHandler(1, details::b_sinh)},
+    {"cosh", details::FunctionHandler(1, details::b_cosh)},
+    {"tanh", details::FunctionHandler(1, details::b_tan)},
+    {"log", details::FunctionHandler(1, details::b_log)},
+    {"max", details::FunctionHandler(1, details::b_max)},
+    {"min", details::FunctionHandler(1, details::b_min)},
+    {"abs", details::FunctionHandler(1, details::b_abs)},
+    {"round", details::FunctionHandler(1, details::b_round)},
+    {"floor", details::FunctionHandler(1, details::b_floor)},
+    {"ceil", details::FunctionHandler(1, details::b_ceil)},
+};
+}  // namespace builtins
+}  // namespace ami
