@@ -38,6 +38,8 @@ class Interpreter {
     };
     std::map<std::string, double> arguments_scope;
     AntiRecursion recur_func;
+    std::size_t call_count = 0;
+    std::size_t max_call_count = 1'000;
     bool is_in_function_call =
         false;  // helper member so visit will lookup at
                 // the temporary function's arguments scope
@@ -103,6 +105,10 @@ class Interpreter {
          * or keep Function object also split this fat boi function into small
          * functions
          * */
+        call_count++;
+        if (call_count >= max_call_count)
+            throw std::runtime_error("reached maximum call range " +
+                                     std::to_string(max_call_count) + " calls");
         bool is_negative = fc->name.at(0) == '-';
         std::string name =
             is_negative ? std::string(fc->name.begin() + 1, fc->name.end())
