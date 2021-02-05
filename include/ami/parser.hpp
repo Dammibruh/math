@@ -96,14 +96,8 @@ class Parser {
         return m_Src.at((m_Pos + 1) >= m_Src.size() ? m_Src.size() - 1
                                                     : m_Pos + 1);
     }
-    bool m_IsIdent(const std::string& str) {
-        std::string::size_type count = 0;
-        for (auto& c : str)
-            if (std::isalpha(c) || c == '_') count++;
-        return count == str.size();
-    }
     void m_Advance(std::size_t x = 1) {
-        if (m_Pos >= 0 && m_Pos < m_Src.size())
+        if (m_Pos < m_Src.size())
             m_Pos += x;
         else
             return;

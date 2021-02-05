@@ -4,6 +4,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "lexer.hpp"
 
@@ -55,7 +56,7 @@ struct BinaryOpExpr : public Expr {
 };
 struct Identifier : public Expr {
     std::string name;
-    Identifier(const std::string& name) : name(name) {}
+    explicit Identifier(const std::string& name) : name(name) {}
     std::string str() override {
         std::stringstream ss;
         ss << "<Identifier name={" << name << "}>";
