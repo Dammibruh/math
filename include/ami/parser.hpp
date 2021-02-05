@@ -5,9 +5,15 @@
 #include <memory>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 #include "ast.hpp"
 namespace ami {
+/*
+ * TODO:
+ * use vector of Exprs for function body to parse full source file
+ * wihtout ignoring previous parsed epxressions
+ * */
 class Parser {
     using ptr_t = std::shared_ptr<Expr>;
     std::vector<TokenHandler> m_Src;
@@ -23,16 +29,13 @@ class Parser {
             if (!std::isdigit(c) && c != '-') return false;
         return true;
     }
-    std::string m_ParseFunctionBody() {
-        std::string body{};
-        while (not_eof() || m_Get().token == Tokens::Semicolon) {
-            body += m_Get().value;
+    ptr_t m_ParseFunctionBody() {
+        ptr_t body = m_ParseExpr();
+        while (not_eof() && m_Get().token != Tokens::Semicolon) {
             m_Advance();
-            if (m_Get().token == Tokens::Semicolon) {
-                m_Advance();
-                return body;
-            }
+            body = m_ParseExpr();
         }
+        return body;
     }
     std::vector<ptr_t> m_ParseFunctionArgs() {
         std::vector<ptr_t> args{};
@@ -55,6 +58,33 @@ class Parser {
         m_Advance();
         return args;
     }
+    std::vector<ptr_t> m_ParseFunctionDefArgs() {
+        std::vector<ptr_t> args{};
+        if (m_Get().token != Tokens::Rparen) {
+            do {
+                if (m_Get().token == Tokens::Comma) {
+                    m_Advance();
+                } else if (!not_eof()) {
+                    throw std::runtime_error(
+                        "EOF while parsing function arguments " +
+                        m_Get().value);
+                } else {
+                    ptr_t temp = m_ParseExpr();
+                    if (temp->type() == AstType::Identifier) {
+                        args.push_back(temp);
+                    } else {
+                        throw std::runtime_error(
+                            "expected identifier in function's arguments");
+                    }
+                }
+            } while (m_Get().token != Tokens::Rparen);
+        }
+        if (m_Get().token != Tokens::Rparen) {
+            throw std::runtime_error("expected ')' after arguments list");
+        }
+        m_Advance();
+        return args;
+    }
     ptr_t m_ParseIdentAssign() {
         ptr_t value = m_ParseExpr();
         while (not_eof() && m_Get().token != Tokens::Semicolon) {
@@ -63,14 +93,15 @@ class Parser {
         }
         return value;
     }
+    bool m_IsValidPunc(TokenHandler tok) {
+        return (tok.token == Tokens::Digit || tok.token == Tokens::Dot ||
+                tok.token == Tokens::Delim || tok.token == Tokens::Edelim);
+    }
     std::string m_GetDigit() {
         std::string temp{};
         bool is_decimal{};
         bool contains_e{};
-        while (not_eof() && (m_Get().token == Tokens::Digit ||
-                             m_Get().token == Tokens::Dot ||
-                             m_Get().token == Tokens::Delim ||
-                             m_Get().token == Tokens::Edelim)) {
+        while (not_eof() && m_IsValidPunc(m_Get())) {
             if (m_Get().token == Tokens::Digit) {
                 temp += m_Get().value;
             } else if (m_Get().token == Tokens::Dot) {
@@ -92,9 +123,9 @@ class Parser {
         }
         return temp;
     }
-    TokenHandler m_Peek() {
-        return m_Src.at((m_Pos + 1) >= m_Src.size() ? m_Src.size() - 1
-                                                    : m_Pos + 1);
+    TokenHandler m_Peek(std::size_t x = 1) {
+        return m_Src.at((m_Pos + x) >= m_Src.size() ? m_Src.size() - 1
+                                                    : m_Pos + x);
     }
     void m_Advance(std::size_t x = 1) {
         if (m_Pos < m_Src.size())
@@ -193,10 +224,45 @@ class Parser {
             } else if (m_Peek().token == Tokens::Lparen) {
                 m_Advance(2);  // skip the '('
                 std::string name = tok.value;
+                std::vector<TokenHandler> src(m_Src.begin() + m_Pos,
+                                              m_Src.end());
+                /*
+                 * create a subvector from the main source so
+                 * helper variables won't look for out of
+                 * range tokens i.e:
+                 * m_Src have a function definition that's
+                 * call another function: 'func(x) =
+                 * sqrt(x)+x`, get_rparen and get_assign will
+                 * look up at m_Src range for rparen and
+                 * assign tokens
+                 * ) and = for function 'func' will be found
+                 * and a unexpected sigfaults will happen
+                 */
+                auto get_rparen = std::find_if(
+                    src.begin(), src.end(),
+                    [](auto t) { return t.token == Tokens::Rparen; });
+                auto get_assign = std::find_if(
+                    src.begin(), src.end(),
+                    [](auto t) { return t.token == Tokens::Assign; });
+                bool contains_assign = get_assign != src.end();
+                bool invalid_assign = get_assign < get_rparen;
                 is_in_func_args = true;
-                std::vector<ptr_t> args = m_ParseFunctionArgs();
+                std::vector<ptr_t> args;
+                if (contains_assign && !invalid_assign) {
+                    args = m_ParseFunctionDefArgs();
+                } else if (!contains_assign) {
+                    args = m_ParseFunctionArgs();
+                } else {
+                    m_Err();
+                }
+                m_Advance();
                 is_in_func_args = false;
-                return std::make_shared<FunctionCall>(name, args);
+                if (contains_assign) {
+                    ptr_t body = m_ParseFunctionBody();
+                    return std::make_shared<Function>(name, body, args);
+                } else {
+                    return std::make_shared<FunctionCall>(name, args);
+                }
             } else {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
@@ -209,8 +275,9 @@ class Parser {
             if (is_in_func_args) {
                 m_Advance();
                 is_in_func_args = false;
+            } else {
+                m_Err();
             }
-            m_Err();
         } else if (tok.token == Tokens::Semicolon) {
             m_Advance(2);
             return m_ParseExpr();
@@ -235,9 +302,7 @@ class Parser {
     }
     ptr_t parse() {
         ptr_t out;
-        while (not_eof()) {
-            out = m_ParseExpr();
-        }
+        while (not_eof()) out = m_ParseExpr();
         return out;
     }
 };

@@ -1,8 +1,9 @@
-#include <ami/ami.hpp>
 #include <cstdio>
 #include <iostream>
 #include <string>
 #include <utility>
+
+#include "../include/ami/ami.hpp"
 
 int main() {
     std::string expr;

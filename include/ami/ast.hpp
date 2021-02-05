@@ -100,15 +100,22 @@ struct FunctionCall : public Expr {
     }
 };
 struct Function : public Expr {
-    std::string name, body;
+    std::string name;
+    std::shared_ptr<Expr> body;
     std::vector<std::shared_ptr<Expr>> arguments;
-    Function(std::string_view name, std::string_view body,
+    Function(std::string_view name, const std::shared_ptr<Expr>& body,
              const std::vector<std::shared_ptr<Expr>>& args)
         : name(name), body(body), arguments(args) {}
     AstType type() const override { return AstType::Function; }
     std::string str() override {
         std::string str;
-        str += ("<Function name={" + name + "}>");
+        str += ("<Function name={" + name + "}, args={");
+        if (arguments.size() > 0) {
+            for (auto& ar : arguments) str += ar->str() + ", ";
+        } else {
+            str += "null";
+        }
+        str += std::string("}, ") + "body={" + body->str() + "}>";
         return str;
     }
 };
