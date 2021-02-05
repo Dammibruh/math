@@ -217,8 +217,8 @@ class Parser {
                 is_in_func_args = false;
             }
             m_Err();
-        } else if (tok.token == Tokens::Semicolon && not_eof()) {
-            m_Advance();
+        } else if (tok.token == Tokens::Semicolon) {
+            m_Advance(2);
             return m_ParseExpr();
         } else {
             m_Err();

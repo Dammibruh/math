@@ -21,6 +21,7 @@ $ make
 ```
 
 ### todos
-- support user defined functions
-- fix ambiguous syntax such as `(-(-5))`
-- support for optional arguments
+[ ] support user defined functions
+[ ] fix ambiguous syntax such as `(-(-5))`
+[ ] support for optional arguments
+[ ] support for complex numbers

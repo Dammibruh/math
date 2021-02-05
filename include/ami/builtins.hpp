@@ -10,55 +10,34 @@
 namespace ami {
 namespace builtins {
 namespace details {
+using arg_t = std::vector<ami::Number>;
 struct FunctionHandler {
-    using func_t = double (*)(const std::vector<ami::Number>&);
+    using func_t = double (*)(const arg_t&);
     std::size_t args_count;
     func_t callback;
     FunctionHandler(std::size_t args_count, func_t func)
         : args_count(args_count), callback(func) {}
 };
-double b_sqrt(const std::vector<ami::Number>& args) {
-    return std::sqrt(args.at(0).val);
-}
-double b_sin(const std::vector<ami::Number>& args) {
-    return std::sin(args.at(0).val);
-}
-double b_cos(const std::vector<ami::Number>& args) {
-    return std::cos(args.at(0).val);
-}
-double b_tan(const std::vector<ami::Number>& args) {
-    return std::tan(args.at(0).val);
-}
-double b_sinh(const std::vector<ami::Number>& args) {
-    return std::sinh(args.at(0).val);
-}
-double b_cosh(const std::vector<ami::Number>& args) {
-    return std::cosh(args.at(0).val);
-}
-double b_tanh(const std::vector<ami::Number>& args) {
-    return std::tanh(args.at(0).val);
-}
-double b_log(const std::vector<ami::Number>& args) {
-    return std::log(args.at(0).val);
-}
-double b_min(const std::vector<ami::Number>& args) {
+double b_sqrt(const arg_t& args) { return std::sqrt(args.at(0).val); }
+double b_sin(const arg_t& args) { return std::sin(args.at(0).val); }
+double b_cos(const arg_t& args) { return std::cos(args.at(0).val); }
+double b_tan(const arg_t& args) { return std::tan(args.at(0).val); }
+double b_sinh(const arg_t& args) { return std::sinh(args.at(0).val); }
+double b_cosh(const arg_t& args) { return std::cosh(args.at(0).val); }
+double b_tanh(const arg_t& args) { return std::tanh(args.at(0).val); }
+double b_log(const arg_t& args) { return std::log(args.at(0).val); }
+double b_log10(const arg_t& args) { return std::log10(args.at(0).val); }
+double b_log2(const arg_t& args) { return std::log2(args.at(0).val); }
+double b_min(const arg_t& args) {
     return std::fmin(args.at(0).val, args.at(1).val);
 }
-double b_max(const std::vector<ami::Number>& args) {
+double b_max(const arg_t& args) {
     return std::fmax(args.at(0).val, args.at(1).val);
 }
-double b_abs(const std::vector<ami::Number>& args) {
-    return std::abs(args.at(0).val);
-}
-double b_round(const std::vector<ami::Number>& args) {
-    return std::round(args.at(0).val);
-}
-double b_ceil(const std::vector<ami::Number>& args) {
-    return std::ceil(args.at(0).val);
-}
-double b_floor(const std::vector<ami::Number>& args) {
-    return std::floor(args.at(0).val);
-}
+double b_abs(const arg_t& args) { return std::abs(args.at(0).val); }
+double b_round(const arg_t& args) { return std::round(args.at(0).val); }
+double b_ceil(const arg_t& args) { return std::ceil(args.at(0).val); }
+double b_floor(const arg_t& args) { return std::floor(args.at(0).val); }
 }  // namespace details
 std::map<std::string, double> constants{{"pi", M_PI},
                                         {"tau", M_PI * 2},

@@ -13,7 +13,6 @@
 namespace ami {
 namespace scope {
 static std::map<std::string, double> userdefined;
-static std::map<std::string, double> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using u_ptr = std::shared_ptr<Expr>;
@@ -80,8 +79,8 @@ class Interpreter {
             std::vector<Number> parsed_args;
             if (args.size() != get_builtin->second.args_count) {
                 throw std::runtime_error(
-                    "mismatched arguments for function call '" + fc->name +
-                    "', called with " + std::to_string(fc->arguments.size()) +
+                    "mismatched arguments for function call '" + name +
+                    "', called with " + std::to_string(args.size()) +
                     " argument, expected " +
                     std::to_string(get_builtin->second.args_count));
             }
@@ -147,6 +146,9 @@ class Interpreter {
                 return m_VisitFunction(static_cast<FunctionCall*>(expr.get()));
             }
         }
+    }
+    void addConstant(const std::string& name, double val) {
+        scope::userdefined[name] = val;
     }
     ~Interpreter() = default;
 };
