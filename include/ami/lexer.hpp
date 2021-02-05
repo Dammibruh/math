@@ -22,7 +22,8 @@ enum class Tokens {
     Unkown,
     Assign,
     Edelim,  // 1e10
-    Semicolon
+    Semicolon,
+    Complex
 };
 struct TokenHandler {
     std::string value;

@@ -2,6 +2,7 @@
 #include <cmath>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -38,6 +39,16 @@ double b_abs(const arg_t& args) { return std::abs(args.at(0).val); }
 double b_round(const arg_t& args) { return std::round(args.at(0).val); }
 double b_ceil(const arg_t& args) { return std::ceil(args.at(0).val); }
 double b_floor(const arg_t& args) { return std::floor(args.at(0).val); }
+double b_gcd(const arg_t& args) {
+    double x = args.at(0).val;
+    double y = args.at(1).val;
+    arg_t r_args{Number(y), Number(std::fmod(x, y))};
+    return !y ? x : b_gcd(r_args);
+}
+double b_lcm(const arg_t& args) {
+    double x = args.at(0).val, y = args.at(1).val;
+    return (x * y) / b_gcd(args);
+}
 }  // namespace details
 std::map<std::string, double> constants{{"pi", M_PI},
                                         {"tau", M_PI * 2},
@@ -59,6 +70,8 @@ std::map<std::string, details::FunctionHandler> functions{
     {"round", details::FunctionHandler(1, details::b_round)},
     {"floor", details::FunctionHandler(1, details::b_floor)},
     {"ceil", details::FunctionHandler(1, details::b_ceil)},
+    {"gcd", details::FunctionHandler(2, details::b_gcd)},
+    {"lcm", details::FunctionHandler(2, details::b_lcm)},
 };
 }  // namespace builtins
 }  // namespace ami
