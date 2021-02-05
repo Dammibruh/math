@@ -3,46 +3,25 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "builtins.hpp"
 #include "parser.hpp"
 
 namespace ami {
 namespace scope {
-static std::map<std::string, double> userdefined;
-static std::map<std::string, ami::Function> userdefined_functions;
+static std::unordered_map<std::string, double> userdefined;
+static std::unordered_map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using u_ptr = std::shared_ptr<Expr>;
-    struct AntiRecursion  // fk recursion who tf needs it in maths without
-                          // comparaisons
-    {
-        std::string name;
-        std::size_t max_count = 50;
-        std::size_t count = 0;
-        bool is_rec() { return count > max_count; }
-        AntiRecursion() = default;
-        explicit AntiRecursion(std::string_view name, std::size_t c = 0)
-            : name(name), count(c) {}
-        void reset() { count = 0; }
-        void set_name(std::string_view name) { this->name = name; }
-        void reset_all(std::string_view name) {
-            reset();
-            this->name = name;
-        }
-        bool operator==(const std::string& oth) { return this->name == oth; }
-    };
-    std::map<std::string, double> arguments_scope;
-    AntiRecursion recur_func;
+    std::unordered_map<std::string, double> arguments_scope;
     std::size_t call_count = 0;
     std::size_t max_call_count = 1'000;
-    bool is_in_function_call =
-        false;  // helper member so visit will lookup at
-                // the temporary function's arguments scope
+    std::string cur_func;
     Number m_VisitAdd(BinaryOpExpr* boe) {
         return Number(visit((boe->lhs)).val + visit((boe->rhs)).val);
     }
@@ -58,24 +37,32 @@ class Interpreter {
     Number m_VisitIdent(Identifier* ident) {
         bool is_negative = (ident->name.at(0) == '-');
         std::string name = ident->name;
+        std::string fc_name =
+            cur_func + '_' +
+            name;  // to check if the identifier is in arguments scope since
+                   // functions args are formatted as: `func_name`, ie: add_x,
+                   // where `add` is a function and 'x' an argument
+        bool is_a_function_arg =
+            arguments_scope.find(fc_name) != arguments_scope.end();
+        bool is_a_defined_ident =
+            scope::userdefined.find(name) != scope::userdefined.end();
+        bool is_a_builtin_ident = ami::builtins::constants.find(name) !=
+                                  ami::builtins::constants.end();
         if (is_negative && name.size() > 1) {
             name = std::string(name.begin() + 1, name.end());
         }
-        if (ami::builtins::constants.find(name) !=
-            ami::builtins::constants.end()) {
+        if (!arguments_scope.empty() && is_a_function_arg) {
+            return Number(arguments_scope.at(fc_name));
+        } else if (is_a_builtin_ident) {
             if (is_negative)
                 return Number(-(ami::builtins::constants.at(name)));
             else
                 return Number(ami::builtins::constants.at(name));
-        } else if ((!scope::userdefined.empty()) &&
-                   (scope::userdefined.find(name) !=
-                    scope::userdefined.end())) {
+        } else if ((!scope::userdefined.empty()) && is_a_defined_ident) {
             if (is_negative)
                 return Number(-scope::userdefined.at(name));
             else
                 return Number(scope::userdefined.at(name));
-        } else if (is_in_function_call && !arguments_scope.empty()) {
-            return Number(arguments_scope.at(name));
         } else {
             throw std::runtime_error(
                 std::string("use of undeclared identifier ") + name);
@@ -99,12 +86,16 @@ class Interpreter {
     Number m_VisitFunction(FunctionCall* fc) {
         /*
          * TODO:
-         * add a addFunction function and object instead of seperating builtin
-         * and userdefined objects,basically copy v8 engine's
+         * add a addFunction function and object instead of separating builtin
+         * and userdefined fumctions ,basically copy v8 engine's
          * functionCallBackInfo
          * or keep Function object also split this fat boi function into small
          * functions
+         * use variant for string and Number and a fmt/error function
+         * keep code clean and documented, maybe use unique pointer for 500ns
+         * performance gain ??????
          * */
+        // recursion check, haha die segmentation fault
         call_count++;
         if (call_count >= max_call_count)
             throw std::runtime_error("reached maximum call range " +
@@ -113,18 +104,6 @@ class Interpreter {
         std::string name =
             is_negative ? std::string(fc->name.begin() + 1, fc->name.end())
                         : fc->name;
-        bool is_called_recursively =
-            (recur_func == name) && recur_func.is_rec();
-        bool is_already_called = recur_func == name;
-        // recursion check, haha die segmentation fault
-        if (is_called_recursively) {
-            std::size_t count = recur_func.count;
-            recur_func.reset();
-            throw std::runtime_error(
-                "function '" + name + "' called recursively '" +
-                std::to_string(count) + "' times max is '" +
-                std::to_string(recur_func.max_count) + "'");
-        }
         decltype(ami::builtins::functions)::iterator get_builtin =
             ami::builtins::functions.find(name);
         bool is_builtin = get_builtin != ami::builtins::functions.end();
@@ -134,11 +113,6 @@ class Interpreter {
         // helper variables
         std::vector<std::shared_ptr<ami::Expr>> args = fc->arguments;
         if (is_builtin) {
-            if (is_already_called) {
-                recur_func.count++;
-            } else {
-                recur_func.reset_all(name);
-            }
             std::vector<Number> parsed_args;
             if (args.size() != get_builtin->second.args_count) {
                 throw std::runtime_error(
@@ -157,11 +131,6 @@ class Interpreter {
             else
                 return Number(get_builtin->second.callback(parsed_args));
         } else if (is_userdefined) {
-            if (is_already_called) {
-                recur_func.count++;
-            } else {
-                recur_func.reset_all(name);
-            }
             if (args.size() != get_userdefined->second.arguments.size()) {
                 throw std::runtime_error(
                     "mismatched arguments for function call '" + name +
@@ -169,20 +138,27 @@ class Interpreter {
                     " argument, expected " +
                     std::to_string(get_userdefined->second.arguments.size()));
             }
-            is_in_function_call =
-                true;  // so visit ident can lookup at arguments scope too
-                       // for defined variables
             std::vector<std::shared_ptr<Expr>> fc_args =
                 get_userdefined->second.arguments;
+            cur_func = name;
             for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
-                arguments_scope[static_cast<Identifier*>(fc_args.at(i).get())
-                                    ->name] = visit(args.at(i)).val;
+                Identifier* ident =
+                    static_cast<Identifier*>(fc_args.at(i).get());
+                std::string cname = fc->name + '_' + ident->name;
+                Number num = visit(args.at(i));
+                arguments_scope[cname] = num.val;
                 // assign each argument to function's argument name in the
-                // argument scope
+                // argument scope ie:
+                // function is `add` and it takes 2 arguments `x` and `y`, the
+                // arguments names will be `add_x`, `add_y` then sync function
+                // call arguments with target function arguments
+                // i.e: add_x is 1
+                // then arguments_scope["add_x"] = visit(Number(1)).val since
+                // the parser converts tokens into ast
             }
             std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
+            // the function's body is evaluated only when it's called
             Number out = visit(fc_body);
-            is_in_function_call = false;
             arguments_scope.clear();
             if (is_negative)
                 return Number(-out.val);
@@ -198,25 +174,15 @@ class Interpreter {
         std::string name = func->name;
         bool is_builtin = ami::builtins::functions.find(name) !=
                           ami::builtins::functions.end();
-        auto contains_builtin = [&args = func->arguments,
-                                 &built = ami::builtins::constants] {
-            for (auto& elm : args) {
-                if (built.find(static_cast<Identifier*>(elm.get())->name) !=
-                    built.end())
-                    return true;
-            }
-            return false;
-        };
         if (is_builtin) {
             throw std::runtime_error("can't assign to built-in function '" +
                                      name + "'");
-        } else if (contains_builtin()) {
-            throw std::runtime_error(
-                "can't assign built-in constants as arguments");
         } else {
             scope::userdefined_functions.insert_or_assign(
                 name, Function(func->name, func->body, func->arguments));
-            throw std::runtime_error("hello");
+            return Number(
+                0);  // return std::variant for string messages
+                     // instead of returning numbers cuz it's confusing and dumb
         }
     }
     Number m_VisitMod(BinaryOpExpr* boe) {
