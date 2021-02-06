@@ -21,7 +21,6 @@ class Interpreter {
     std::unordered_map<std::string, double> arguments_scope;
     std::size_t call_count = 0;
     std::size_t max_call_count = 1'000;
-    std::string cur_func;
     Number m_VisitAdd(BinaryOpExpr* boe) {
         return Number(visit((boe->lhs)).val + visit((boe->rhs)).val);
     }
@@ -37,13 +36,8 @@ class Interpreter {
     Number m_VisitIdent(Identifier* ident) {
         bool is_negative = (ident->name.at(0) == '-');
         std::string name = ident->name;
-        std::string fc_name =
-            cur_func + '_' +
-            name;  // to check if the identifier is in arguments scope since
-                   // functions args are formatted as: `func_name`, ie: add_x,
-                   // where `add` is a function and 'x' an argument
         bool is_a_function_arg =
-            arguments_scope.find(fc_name) != arguments_scope.end();
+            arguments_scope.find(name) != arguments_scope.end();
         bool is_a_defined_ident =
             scope::userdefined.find(name) != scope::userdefined.end();
         bool is_a_builtin_ident = ami::builtins::constants.find(name) !=
@@ -51,8 +45,8 @@ class Interpreter {
         if (is_negative && name.size() > 1) {
             name = std::string(name.begin() + 1, name.end());
         }
-        if (!arguments_scope.empty() && is_a_function_arg) {
-            return Number(arguments_scope.at(fc_name));
+        if (is_a_function_arg) {
+            return Number(arguments_scope.at(name));
         } else if (is_a_builtin_ident) {
             if (is_negative)
                 return Number(-(ami::builtins::constants.at(name)));
@@ -140,26 +134,16 @@ class Interpreter {
             }
             std::vector<std::shared_ptr<Expr>> fc_args =
                 get_userdefined->second.arguments;
-            cur_func = name;
             for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
                 Identifier* ident =
                     static_cast<Identifier*>(fc_args.at(i).get());
-                std::string cname = fc->name + '_' + ident->name;
+                std::string cname = ident->name;
                 Number num = visit(args.at(i));
                 arguments_scope[cname] = num.val;
-                // assign each argument to function's argument name in the
-                // argument scope ie:
-                // function is `add` and it takes 2 arguments `x` and `y`, the
-                // arguments names will be `add_x`, `add_y` then sync function
-                // call arguments with target function arguments
-                // i.e: add_x is 1
-                // then arguments_scope["add_x"] = visit(Number(1)).val since
-                // the parser converts tokens into ast
             }
             std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
             // the function's body is evaluated only when it's called
             Number out = visit(fc_body);
-            arguments_scope.clear();
             if (is_negative)
                 return Number(-out.val);
             else
@@ -246,6 +230,11 @@ class Interpreter {
     }
     void addConstant(const std::string& name, double val) {
         scope::userdefined[name] = val;
+    }
+    Number visitvec(const std::vector<u_ptr>& exprs) {
+        Number out(0);
+        for (auto& elm : exprs) out = visit(elm);
+        return out;
     }
     ~Interpreter() = default;
 };
