@@ -117,10 +117,11 @@ class Lexer {
                         m_Advance();
                         auto out = '-' + m_GetDigit();
                         m_AddTok(Tokens::Digit, out);
-                    } else if (m_Peek() == '-' && (!m_IsDigit(m_Peek(2)) ||
-                                                   !m_IsAlpha(m_Peek(2)))) {
-                        m_AddTok(Tokens::Plus, "+");
-                    } else {
+                    } /* else if (m_Peek() == '-' && (!m_IsDigit(m_Peek(2)) ||
+                                                    !m_IsAlpha(m_Peek(2)))) {
+                         m_AddTok(Tokens::Plus, "+");
+                     }*/
+                    else {
                         m_AddTok(Tokens::Minus, "-");
                     }
                     break;

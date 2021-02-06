@@ -24,3 +24,6 @@ $ make
 -   [ ] support for optional arguments
 -   [ ] support for complex numbers
 -   [ ] support for complex data types
+-   [ ] fix `use of undeclared identifier` when calling defined from defined functions
+-   [ ] parse whole source instead of overriding previous parsed expressions
+-   [ ] fix `syntax error` when calling defined functions
