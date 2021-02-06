@@ -24,6 +24,9 @@ class Parser {
     TokenHandler m_Get() {
         return m_Src.at(m_Pos >= m_Src.size() ? m_Src.size() - 1 : m_Pos);
     }
+    TokenHandler m_Prev(std::size_t x = 1) {
+        return m_Src.at((m_Pos) == 0 ? 0 : m_Pos - x);
+    }
     bool not_eof() { return m_Pos < m_Src.size(); }
     bool m_IsDigit(const std::string& str) {
         for (auto& c : str)
@@ -199,7 +202,7 @@ class Parser {
         } else if (tok.token == Tokens::Plus) {
             if (not_eof()) {
                 m_Advance();
-                return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseFactor(),
+                return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseExpr(),
                                                       nullptr);
             } else {
                 m_Err();
@@ -213,7 +216,7 @@ class Parser {
                     // much easier to handle expressions like `5-(-(-(-5)))`
                 } else {
                     return std::make_shared<BinaryOpExpr>(
-                        Op::Minus, m_ParseFactor(), nullptr);
+                        Op::Minus, m_ParseExpr(), nullptr);
                 }
             } else {
                 m_Err();
@@ -262,7 +265,11 @@ class Parser {
                 is_in_func_args = false;
                 if (contains_assign) {
                     ptr_t body = m_ParseExpr();
-                    m_Advance(-1);
+                    m_Advance(
+                        -1);  // so the parser won't ignore operations after the
+                              // closed rparen ')' since we're advancing each
+                              // function argument and advancing again after
+                              // parsing the arguments
                     return std::make_shared<Function>(name, body, args);
                 } else {
                     m_Advance(-1);
@@ -272,12 +279,7 @@ class Parser {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
             }
-        } /* else if (tok.token == Tokens::Comma) {
-             if (!is_in_func_args) {
-                 m_Err();
-             }
-         }*/
-        else if (tok.token == Tokens::Rparen) {
+        } else if (tok.token == Tokens::Rparen) {
             m_ParensCount--;
             if (m_ParensCount == 0) {
                 m_Advance();

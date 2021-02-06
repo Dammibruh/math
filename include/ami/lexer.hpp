@@ -108,20 +108,25 @@ class Lexer {
                     if (m_Prev() != 'e' &&
                         (m_IsDigit(m_Prev()) || m_IsDigit(m_Get()) ||
                          m_IsAlpha(m_Prev()) || m_IsAlpha(m_Get()))) {
+                        // this basically says only consider it as a Minus if
+                        // the prev and the current are a: ident number or ident
+                        // ident or number ident or number number
                         m_AddTok(Tokens::Minus, "-");
-                    } else if (m_IsAlpha(m_Peek())) {
+                    } else if (m_IsAlpha(m_Peek()) && !m_IsAlpha(m_Get()) &&
+                               m_Prev() != ')') {
+                        // same as below but for identifiers
                         m_Advance();  // eat the '-' char
                         auto out = '-' + m_GetIdent();
                         m_AddTok(Tokens::Identifier, out);
-                    } else if (m_IsDigit(m_Peek())) {
+                    } else if (m_IsDigit(m_Peek()) && !m_IsDigit(m_Get()) &&
+                               m_Prev() != ')') {
+                        // this basically says if the previous shit isn't an
+                        // expression then consider the current number as
+                        // negative number
                         m_Advance();
                         auto out = '-' + m_GetDigit();
                         m_AddTok(Tokens::Digit, out);
-                    } /* else if (m_Peek() == '-' && (!m_IsDigit(m_Peek(2)) ||
-                                                    !m_IsAlpha(m_Peek(2)))) {
-                         m_AddTok(Tokens::Plus, "+");
-                     }*/
-                    else {
+                    } else {
                         m_AddTok(Tokens::Minus, "-");
                     }
                     break;
