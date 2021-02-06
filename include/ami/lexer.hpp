@@ -35,24 +35,27 @@ class Lexer {
     std::size_t m_Pos = 0;
     std::string m_Src;
     bool m_IsDigit(char c) { return (c >= '0' && c <= '9'); }
+    bool not_eof() { return m_Pos < m_Src.size(); }
     bool m_IsAlpha(char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
     }
-    char m_Get() { return m_Src[m_Pos]; }
-    char m_Peek(std::size_t x = 1) { return m_Src[m_Pos + x]; }
-    void m_Advance(std::size_t x = 1) { m_Pos += x; }
-    char m_Prev() {
-        if (m_Pos == 0)
-            return m_Get();
-        else
-            return m_Src[m_Pos - 1];
+    char m_Get() {
+        return m_Src.at((m_Pos >= m_Src.size()) ? (m_Src.size() - 1) : m_Pos);
     }
+    char m_Peek(std::size_t x = 1) {
+        return m_Src.at((m_Pos + x) >= m_Src.size() ? (m_Src.size() - 1)
+                                                    : (m_Pos + x));
+    }
+    char m_Prev(std::size_t x = 1) {
+        return m_Src.at((m_Pos) == 0 ? 0 : m_Pos - x);
+    }
+    void m_Advance(std::size_t x = 1) { m_Pos += x; }
     void m_AddTok(Tokens tok, const std::string& val) {
         m_Tokens.push_back(TokenHandler{.value = val, .token = tok});
     }
     std::string m_GetIdent() {
         std::string out{};
-        while (m_IsAlpha(m_Get())) {
+        while (not_eof() && m_IsAlpha(m_Get())) {
             out += m_Get();
             m_Advance();
         }
@@ -61,19 +64,27 @@ class Lexer {
     }
     std::string m_GetDigit() {
         std::string temp{};
-        while (m_IsDigit(m_Get())) {
+        while (not_eof() && m_IsDigit(m_Get())) {
             temp += m_Get();
             m_Advance();
         }
         m_Advance(-1);
         return temp;
     }
+    std::string m_GetExpr() {
+        std::string out{};
+        while (not_eof() && m_Get() != ')') {
+            m_Advance();
+        }
+        m_Advance(-1);
+        return out;
+    }
 
    public:
     explicit Lexer(const std::string& text) : m_Src(text) {}
     std::vector<TokenHandler> lex() {
         while (m_Pos < m_Src.size()) {
-            switch (m_Src[m_Pos]) {
+            switch (m_Src.at(m_Pos)) {
                 default:
                     if (m_IsDigit(m_Get())) {
                         // if the current pos is a digit get the full digit
@@ -94,20 +105,18 @@ class Lexer {
                     // check if the previous and the next token are a
                     // ident/digit add minus token otherwise add it as a
                     // negative value
-                    if (m_Src[m_Pos - 1] != 'e' &&
-                        (m_IsDigit(m_Src[m_Pos - 1]) || m_IsDigit(m_Get()) ||
-                         m_IsAlpha(m_Src[m_Pos - 1]) || m_IsAlpha(m_Get()))) {
+                    if (m_Prev() != 'e' &&
+                        (m_IsDigit(m_Prev()) || m_IsDigit(m_Get()) ||
+                         m_IsAlpha(m_Prev()) || m_IsAlpha(m_Get()))) {
                         m_AddTok(Tokens::Minus, "-");
                     } else if (m_IsAlpha(m_Peek())) {
                         m_Advance();  // eat the '-' char
                         auto out = '-' + m_GetIdent();
                         m_AddTok(Tokens::Identifier, out);
-                        break;
                     } else if (m_IsDigit(m_Peek())) {
                         m_Advance();
                         auto out = '-' + m_GetDigit();
                         m_AddTok(Tokens::Digit, out);
-                        break;
                     } else if (m_Peek() == '-' && (!m_IsDigit(m_Peek(2)) ||
                                                    !m_IsAlpha(m_Peek(2)))) {
                         m_AddTok(Tokens::Plus, "+");

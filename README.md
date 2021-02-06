@@ -21,7 +21,6 @@ $ make
 ```
 
 ### todos
--   [ ] fix ambiguous syntax such as `(-(-5))`
 -   [ ] support for optional arguments
 -   [ ] support for complex numbers
 -   [ ] support for complex data types

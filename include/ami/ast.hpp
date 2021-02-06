@@ -18,6 +18,7 @@ enum class AstType {
     FunctionCall,
     Function,
     UserDefinedIdentifier,
+    NegativeExpr,
     UserDefinedFunction
 };
 static std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'},
@@ -37,6 +38,14 @@ struct Number : Expr {
         return out;
     }
     AstType type() const override { return AstType::Number; }
+};
+struct NegativeExpr : public Expr {
+    std::shared_ptr<Expr> value;
+    explicit NegativeExpr(const std::shared_ptr<Expr>& val) : value(val) {}
+    std::string str() override {
+        return "<NegativeExpr value={" + value->str() + "}>";
+    }
+    AstType type() const override { return AstType::NegativeExpr; }
 };
 struct BinaryOpExpr : public Expr {
     std::shared_ptr<Expr> lhs, rhs;

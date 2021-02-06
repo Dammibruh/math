@@ -210,8 +210,14 @@ class Parser {
                 // we don't want to consider negative numbers as an
                 // operation
                 m_Advance();
-                return std::make_shared<BinaryOpExpr>(Op::Minus,
-                                                      m_ParseFactor(), nullptr);
+                if (m_Get().token == Tokens::Lparen) {
+                    m_Advance();
+                    return std::make_shared<NegativeExpr>(m_ParseExpr());
+                    // much easier to handle expressions like `5-(-(-(-5)))`
+                } else {
+                    return std::make_shared<BinaryOpExpr>(
+                        Op::Minus, m_ParseFactor(), nullptr);
+                }
             } else {
                 m_Err();
             }
@@ -302,8 +308,7 @@ class Parser {
     }
     ptr_t parse() {
         ptr_t out;
-        while (not_eof()) out = m_ParseExpr();
-        return out;
+        return m_ParseExpr();
     }
 };
 

@@ -191,6 +191,9 @@ class Interpreter {
     Number m_VisitPow(BinaryOpExpr* boe) {
         return Number(std::pow(visit((boe->lhs)).val, visit((boe->rhs)).val));
     }
+    Number m_VisitNegative(NegativeExpr* ex) {
+        return Number(-visit(ex->value).val);
+    }
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
@@ -235,6 +238,9 @@ class Interpreter {
             }
             case AstType::Function: {
                 return m_VisitFunctionDef(static_cast<Function*>(expr.get()));
+            }
+            case AstType::NegativeExpr: {
+                return m_VisitNegative(static_cast<NegativeExpr*>(expr.get()));
             }
         }
     }
