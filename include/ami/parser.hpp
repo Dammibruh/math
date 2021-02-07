@@ -1,4 +1,6 @@
 #pragma once
+#include <fmt/core.h>
+
 #include <cmath>
 #include <cstdio>
 #include <iostream>
@@ -33,6 +35,16 @@ class Parser {
         for (auto& c : str)
             if (!std::isdigit(c) && c != '-') return false;
         return true;
+    }
+    bool m_IsAnOp(Tokens tok) {
+        return (tok == Tokens::Mod) || (tok == Tokens::Div) ||
+               (tok == Tokens::Mult) || (tok == Tokens::Plus) ||
+               (tok == Tokens::Minus) || (tok == Tokens::Pow);
+    }
+    bool m_IsValidAfterNumber(TokenHandler tok) {
+        return m_IsAnOp(tok.token) || (tok.token == Tokens::Lparen) ||
+               (tok.token == Tokens::Rparen) || (tok.token == Tokens::Digit) ||
+               (tok.token == Tokens::Delim) || (tok.token == Tokens::Edelim);
     }
     std::vector<ptr_t> m_ParseFunctionArgs() {
         std::vector<ptr_t> args{};
@@ -252,9 +264,13 @@ class Parser {
             m_Err();
         } else if (tok.token == Tokens::Digit) {
             if (m_IsDigit(tok.value) && not_eof()) {
-                return std::make_shared<Number>(std::stod(m_GetDigit()));
+                if (not_eof())
+                    return std::make_shared<Number>(std::stod(m_GetDigit()));
             } else {
-                m_Err();
+                m_Err(
+                    fmt::format("Expected operation or expression after '{}', "
+                                "found '{}' instead",
+                                tok.value, m_Get().value));
             }
         } else if (tok.token == Tokens::Plus) {
             if (not_eof() && m_Pos > 0) {
@@ -263,6 +279,7 @@ class Parser {
                 return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseExpr(),
                                                       nullptr);
             } else {
+                m_Advance();
                 m_Err();
             }
         } else if (tok.token == Tokens::Minus) {
@@ -298,7 +315,10 @@ class Parser {
                 m_Advance();
                 return m_ParseExpr();
             } else {
-                m_Err();
+                m_Err(
+                    fmt::format("expected a closing paren ')' or expression "
+                                "for '(' found '{}' instead",
+                                tok.value));
             }
         } else if (tok.token == Tokens::Semicolon) {
             m_Advance(2);
@@ -307,10 +327,8 @@ class Parser {
             m_Err();
         }
     }
-    void m_Err() {
-        m_ThrowErr("SyntaxError",
-                   fmt::format("Unexpected token '{}'", m_Get().value));
-    }
+    void m_Err() { m_Err(fmt::format("Unexpexted token '{}'", m_Get().value)); }
+    void m_Err(const std::string& msg) { m_ThrowErr("SyntaxError", msg); }
     void m_ThrowErr(const std::string& err, const std::string& msg) {
         this->ei.name = err;
         this->ei.err = msg;
@@ -326,7 +344,7 @@ class Parser {
         if (_tok.size() > 0)
             m_Src = _tok;
         else
-            throw std::runtime_error("invalid input");
+            m_ThrowErr("ParseError", "invalid input");
     }
     ptr_t parse() { return m_ParseExpr(); }
     std::vector<ptr_t> parsevec() {

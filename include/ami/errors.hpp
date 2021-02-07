@@ -23,12 +23,11 @@ class BaseException {
         file(ei.file),
         src(ei.src),
         linepos(ei.linepos) {
-    std::string _fmt_str = "{file}:{pos}: {name} {error}";
+    std::string _fmt_str = "at \"<{file}>\" col '{pos}', {name}:  {error}";
     _fmt_str = fmt::format(
         "{}\n{}\n",
         fmt::format(_fmt_str, fmt::arg("file", file), fmt::arg("pos", linepos),
-                    fmt::arg("name", name), fmt::arg("error", err),
-                    fmt::arg("src", src)),
+                    fmt::arg("name", name), fmt::arg("error", err)),
         src);
     _fmt_str += std::string(linepos, ' ') + '^';
     m_Fmt = _fmt_str;

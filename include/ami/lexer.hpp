@@ -23,7 +23,6 @@ enum class Tokens {
     Assign,
     Edelim,  // 1e10
     Semicolon,
-    Complex
 };
 struct TokenHandler {
     std::string value;
