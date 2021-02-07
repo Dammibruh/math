@@ -94,22 +94,6 @@ class Interpreter {
             throw std::runtime_error(ss.str());
         }
     }
-    Number m_VisitDefinedFunction(
-        FunctionCall* fc,
-        decltype(scope::userdefined_functions)::iterator userdefined) {
-        std::vector<std::shared_ptr<Expr>> fc_args =
-            userdefined->second.arguments;
-        for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
-            Identifier* ident = static_cast<Identifier*>(fc_args.at(i).get());
-            std::string cname = ident->name;
-            Number num = visit(fc->arguments.at(i));
-            arguments_scope[cname] = num.val;
-        }
-        std::shared_ptr<Expr> fc_body = userdefined->second.body;
-        // the function's body is evaluated only when it's called
-        Number out = visit(fc_body);
-        return out;
-    }
     Number m_VisitFunction(FunctionCall* fc) {
         /*
          * TODO:
@@ -143,6 +127,7 @@ class Interpreter {
         // helper variables
         std::vector<std::shared_ptr<ami::Expr>> args = fc->arguments;
         if (is_builtin) {
+            std::vector<Number> parsed_args;
             if (args.size() != get_builtin->second.args_count) {
                 m_Err(fmt::format(
                     "mismatched arguments for function call '{}' "
@@ -150,7 +135,6 @@ class Interpreter {
                     name, args.size(), get_builtin->second.args_count));
             }
             // evaluate each passed argument
-            std::vector<Number> parsed_args;
             std::for_each(args.begin(), args.end(),
                           [&parsed_args, this](const auto& arg) {
                               parsed_args.push_back(visit(arg));
@@ -166,12 +150,23 @@ class Interpreter {
                                 ",called with {} argument, expected {} ",
                                 name, args.size(),
                                 get_userdefined->second.arguments.size()));
-                if (is_negative)
-                    return Number(
-                        -(m_VisitDefinedFunction(fc, get_userdefined).val));
-                else
-                    return m_VisitDefinedFunction(fc, get_userdefined);
             }
+            std::vector<std::shared_ptr<Expr>> fc_args =
+                get_userdefined->second.arguments;
+            for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
+                Identifier* ident =
+                    static_cast<Identifier*>(fc_args.at(i).get());
+                std::string cname = ident->name;
+                Number num = visit(args.at(i));
+                arguments_scope[cname] = num.val;
+            }
+            std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
+            // the function's body is evaluated only when it's called
+            Number out = visit(fc_body);
+            if (is_negative)
+                return Number(-out.val);
+            else
+                return out;
 
         } else {
             m_Err(fmt::format("use of undeclared function '{}'", name));
