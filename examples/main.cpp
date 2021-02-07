@@ -8,11 +8,9 @@ int main() {
     std::string functions("sqrt(25)");
     auto out = ami::eval(expression);
     auto out2 = ami::eval(expression2);
-    using namespace ami::literals;  // can also use string literals
     std::cout << expression << ": " << out << '\n'
               << expression2 << ": " << out2 << '\n'
               << "pi"
-              << ": "
-              << "pi"_eval << '\n'
+              << ": " << ami::eval("pi") << '\n'
               << functions << ": " << ami::eval(functions) << '\n';
 }

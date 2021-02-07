@@ -1,14 +1,18 @@
 #pragma once
+#include <fmt/core.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "builtins.hpp"
+#include "errors.hpp"
 #include "parser.hpp"
 
 namespace ami {
@@ -21,6 +25,20 @@ class Interpreter {
     std::unordered_map<std::string, double> arguments_scope;
     std::size_t call_count = 0;
     std::size_t max_call_count = 1'000;
+    std::size_t m_Pos = 0;
+    ami::exceptions::ExceptionInterface ei;
+    // exceptions
+    void m_ThrowErr(const std::string& str, const std::string& msg,
+                    std::optional<std::size_t> pos = std::nullopt) {
+        ei.name = str;
+        ei.err = msg;
+        ei.linepos = pos.value_or(m_Pos);
+        throw ami::exceptions::BaseException(ei);
+    }
+    void m_Err(const std::string& msg,
+               std::optional<std::size_t> pos = std::nullopt) {
+        m_ThrowErr("Error", msg, pos);
+    }
     Number m_VisitAdd(BinaryOpExpr* boe) {
         return Number(visit((boe->lhs)).val + visit((boe->rhs)).val);
     }
@@ -58,16 +76,15 @@ class Interpreter {
             else
                 return Number(scope::userdefined.at(name));
         } else {
-            throw std::runtime_error(
-                std::string("use of undeclared identifier ") + name);
+            m_Err(fmt::format("use of undeclared identifier '{}'", name));
         }
     }
     Number m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
         bool is_builtin = ami::builtins::constants.find(udi->name) !=
                           ami::builtins::constants.end();
         if (is_builtin) {
-            throw std::runtime_error("Can't assign to built-in identifier \"" +
-                                     udi->name + "\"");
+            m_Err(fmt::format("Can't assign to built-in identifier '{}'",
+                              udi->name));
         } else {
             auto val = visit((udi->value)).val;
             auto name = std::string(udi->name);
@@ -76,6 +93,22 @@ class Interpreter {
             ss << name << " = " << val;
             throw std::runtime_error(ss.str());
         }
+    }
+    Number m_VisitDefinedFunction(
+        FunctionCall* fc,
+        decltype(scope::userdefined_functions)::iterator userdefined) {
+        std::vector<std::shared_ptr<Expr>> fc_args =
+            userdefined->second.arguments;
+        for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
+            Identifier* ident = static_cast<Identifier*>(fc_args.at(i).get());
+            std::string cname = ident->name;
+            Number num = visit(fc->arguments.at(i));
+            arguments_scope[cname] = num.val;
+        }
+        std::shared_ptr<Expr> fc_body = userdefined->second.body;
+        // the function's body is evaluated only when it's called
+        Number out = visit(fc_body);
+        return out;
     }
     Number m_VisitFunction(FunctionCall* fc) {
         /*
@@ -91,9 +124,12 @@ class Interpreter {
          * */
         // recursion check, haha die segmentation fault
         call_count++;
-        if (call_count >= max_call_count)
-            throw std::runtime_error("reached maximum call range " +
-                                     std::to_string(max_call_count) + " calls");
+        if (call_count >= max_call_count) {
+            std::size_t temp = call_count;
+            call_count = 0;
+            m_Err(fmt::format("{} called recursively for {}", fc->name, temp),
+                  0);
+        }
         bool is_negative = fc->name.at(0) == '-';
         std::string name =
             is_negative ? std::string(fc->name.begin() + 1, fc->name.end())
@@ -107,15 +143,14 @@ class Interpreter {
         // helper variables
         std::vector<std::shared_ptr<ami::Expr>> args = fc->arguments;
         if (is_builtin) {
-            std::vector<Number> parsed_args;
             if (args.size() != get_builtin->second.args_count) {
-                throw std::runtime_error(
-                    "mismatched arguments for function call '" + name +
-                    "', called with " + std::to_string(args.size()) +
-                    " argument, expected " +
-                    std::to_string(get_builtin->second.args_count));
+                m_Err(fmt::format(
+                    "mismatched arguments for function call '{}' "
+                    ",called with {} argument, expected {} ",
+                    name, args.size(), get_builtin->second.args_count));
             }
             // evaluate each passed argument
+            std::vector<Number> parsed_args;
             std::for_each(args.begin(), args.end(),
                           [&parsed_args, this](const auto& arg) {
                               parsed_args.push_back(visit(arg));
@@ -126,32 +161,20 @@ class Interpreter {
                 return Number(get_builtin->second.callback(parsed_args));
         } else if (is_userdefined) {
             if (args.size() != get_userdefined->second.arguments.size()) {
-                throw std::runtime_error(
-                    "mismatched arguments for function call '" + name +
-                    "', called with " + std::to_string(args.size()) +
-                    " argument, expected " +
-                    std::to_string(get_userdefined->second.arguments.size()));
+                m_Err(
+                    fmt::format("mismatched arguments for function call '{}' "
+                                ",called with {} argument, expected {} ",
+                                name, args.size(),
+                                get_userdefined->second.arguments.size()));
+                if (is_negative)
+                    return Number(
+                        -(m_VisitDefinedFunction(fc, get_userdefined).val));
+                else
+                    return m_VisitDefinedFunction(fc, get_userdefined);
             }
-            std::vector<std::shared_ptr<Expr>> fc_args =
-                get_userdefined->second.arguments;
-            for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
-                Identifier* ident =
-                    static_cast<Identifier*>(fc_args.at(i).get());
-                std::string cname = ident->name;
-                Number num = visit(args.at(i));
-                arguments_scope[cname] = num.val;
-            }
-            std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
-            // the function's body is evaluated only when it's called
-            Number out = visit(fc_body);
-            if (is_negative)
-                return Number(-out.val);
-            else
-                return out;
 
         } else {
-            throw std::runtime_error("use of undeclared function '" + name +
-                                     "'");
+            m_Err(fmt::format("use of undeclared function '{}'", name));
         }
     }
     Number m_VisitFunctionDef(Function* func) {
@@ -159,8 +182,7 @@ class Interpreter {
         bool is_builtin = ami::builtins::functions.find(name) !=
                           ami::builtins::functions.end();
         if (is_builtin) {
-            throw std::runtime_error("can't assign to built-in function '" +
-                                     name + "'");
+            m_Err(fmt::format("can't assign to built-in function '{}'", name));
         } else {
             scope::userdefined_functions.insert_or_assign(
                 name, Function(func->name, func->body, func->arguments));
@@ -181,17 +203,18 @@ class Interpreter {
     Number m_VisitNumber(Number* num) { return Number(num->val); }
 
    public:
-    Interpreter() = default;
+    Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
     Number visit(u_ptr expr) {
+        m_Pos++;
         switch (expr->type()) {
             default: {
-                throw std::runtime_error("invalid expression");
+                m_Err("invalid expression");
             }
             case AstType::BinaryOp: {
                 BinaryOpExpr* bopexpr = static_cast<BinaryOpExpr*>(expr.get());
                 switch (bopexpr->op) {
                     default:
-                        throw std::runtime_error("invalid operator");
+                        m_Err("invalid operator");
                         break;
                     case Op::Plus:
                         return m_VisitAdd(bopexpr);

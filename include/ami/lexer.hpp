@@ -28,6 +28,7 @@ enum class Tokens {
 struct TokenHandler {
     std::string value;
     Tokens token;
+    std::size_t pos;
 };
 // lexer
 class Lexer {
@@ -51,7 +52,8 @@ class Lexer {
     }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
     void m_AddTok(Tokens tok, const std::string& val) {
-        m_Tokens.push_back(TokenHandler{.value = val, .token = tok});
+        m_Tokens.push_back(
+            TokenHandler{.value = val, .token = tok, .pos = m_Pos});
     }
     std::string m_GetIdent() {
         std::string out{};

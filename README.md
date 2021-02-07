@@ -1,15 +1,20 @@
 # ami
 A simple math interpreter written in C++
-supports math constants and user defined identifiers
+supports math constants, functions and user defined identifiers, functions
 
 ## expressions
 regular maths expressions such as multiplication, addition, substraction,
 division, power and the module operator.
 identifiers can be builtin such as: pi, tau, eu(constant e), inf, nan
-or user defined by `my_iden = 5;`.
+or user defined by `my_iden = 5;`. Function can also be builtin such as: `sqrt`, `min`, `max`...
+or user defined by `func(x) = x*2`.
 Numbers can be negative/positive decimals/integers and can be written as
 `1'000'000` and `1e5` for better readablity.
 this project is still not yet stable, any issue or pr is appreciated
+
+## dependencies:
+- [libfmt](https://github.com/fmtlib/fmt)
+- C++17
 
 ### building
 ```shell

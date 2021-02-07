@@ -10,7 +10,7 @@ int main() {
         try {
             auto output = ami::eval(expr);
             std::cout << output << '\n';
-        } catch (const std::exception& x) {
+        } catch (const ami::exceptions::BaseException& x) {
             std::cout << "err: " << x.what() << '\n';
         }
     }

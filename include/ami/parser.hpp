@@ -8,6 +8,7 @@
 #include <string>
 
 #include "ast.hpp"
+#include "errors.hpp"
 namespace ami {
 /*
  * TODO:
@@ -19,7 +20,7 @@ class Parser {
     std::vector<TokenHandler> m_Src;
     std::size_t m_Pos = 0;
     std::size_t m_ParensCount = 0;
-    bool is_in_func_args = false;
+    ami::exceptions::ExceptionInterface ei;
 
     TokenHandler m_Get() {
         return m_Src.at(m_Pos >= m_Src.size() ? m_Src.size() - 1 : m_Pos);
@@ -38,18 +39,23 @@ class Parser {
         if (m_Get().token != Tokens::Rparen) {
             do {
                 if (m_Get().token == Tokens::Comma) {
-                    m_Advance();
+                    // to prevent weird syntaxes and eofs while parsing from
+                    // being valid e.i: func(,) or func(, or func(5, etc
+                    if (args.size() > 0 && m_Peek().token != Tokens::Rparen &&
+                        not_eof())
+                        m_Advance();
+                    else
+                        m_Err();
                 } else if (!not_eof()) {
-                    throw std::runtime_error(
-                        "EOF while parsing function arguments " +
-                        m_Get().value);
+                    m_ThrowErr("ParseError",
+                               "EOF while parsing function arguments ");
                 } else {
                     args.push_back(m_ParseExpr());
                 }
             } while (m_Get().token != Tokens::Rparen);
         }
         if (m_Get().token != Tokens::Rparen) {
-            throw std::runtime_error("expected ')' after arguments list");
+            m_ThrowErr("SyntaxError", "expected ')' after arguments list");
         }
         m_Advance();
         return args;
@@ -59,27 +65,79 @@ class Parser {
         if (m_Get().token != Tokens::Rparen) {
             do {
                 if (m_Get().token == Tokens::Comma) {
-                    m_Advance();
+                    if (args.size() > 0 && m_Peek().token != Tokens::Rparen &&
+                        not_eof())
+                        m_Advance();
+                    else
+                        m_Err();
                 } else if (!not_eof()) {
-                    throw std::runtime_error(
-                        "EOF while parsing function arguments " +
-                        m_Get().value);
+                    m_ThrowErr("ParseError",
+                               "EOF while parsing function arguments ");
                 } else {
                     ptr_t temp = m_ParseExpr();
                     if (temp->type() == AstType::Identifier) {
                         args.push_back(temp);
                     } else {
-                        throw std::runtime_error(
+                        // to allow only identifier in arguments when defining a
+                        // function i.e: this is invalid `f(5) = x`
+                        m_ThrowErr(
+                            "TypeError",
                             "expected identifier in function's arguments");
                     }
                 }
             } while (m_Get().token != Tokens::Rparen);
         }
         if (m_Get().token != Tokens::Rparen) {
-            throw std::runtime_error("expected ')' after arguments list");
+            m_ThrowErr("SyntaxError", "expected ')' after arguments list");
         }
         m_Advance();
         return args;
+    }
+    ptr_t m_ParseFunctionDefOrCall(TokenHandler tok) {
+        /*
+         * create a subvector from the main source so
+         * helper variables won't look for out of
+         * range tokens i.e:
+         * m_Src have a function definition that's
+         * call another function: 'func(x) =
+         * sqrt(x)+x`, get_rparen and get_assign will
+         * look up at m_Src range for rparen and
+         * assign tokens
+         * ) and = for function 'func' will be found
+         * and a unexpected sigfaults will happen
+         */
+        std::string name = tok.value;
+        std::vector<TokenHandler> src(m_Src.begin() + m_Pos, m_Src.end());
+        auto get_rparen = std::find_if(src.begin(), src.end(), [](auto t) {
+            return t.token == Tokens::Rparen;
+        });
+        auto get_assign = std::find_if(src.begin(), src.end(), [](auto t) {
+            return t.token == Tokens::Assign;
+        });
+        bool contains_assign = get_assign != src.end();
+        bool invalid_assign = get_assign < get_rparen;
+        std::vector<ptr_t> args;
+        if (contains_assign && !invalid_assign) {
+            args = m_ParseFunctionDefArgs();
+        } else if (!contains_assign) {
+            args = m_ParseFunctionArgs();
+        } else {
+            m_Err();
+        }
+        m_Advance();
+        if (contains_assign) {
+            ptr_t body = m_ParseExpr();
+            m_Advance(-1);
+            // so the parser won't ignore operations after the
+            // closed rparen ')' since we're advancing each
+            // function argument and advancing again after
+            // parsing the arguments
+
+            return std::make_shared<Function>(name, body, args);
+        } else {
+            m_Advance(-1);
+            return std::make_shared<FunctionCall>(name, args);
+        }
     }
     ptr_t m_ParseIdentAssign() {
         ptr_t value = m_ParseExpr();
@@ -185,8 +243,7 @@ class Parser {
             m_Advance();
             if (not_eof()) {
                 ptr_t out = m_ParseExpr();
-                if (m_Get().token != Tokens::Rparen &&
-                    (!is_in_func_args || (m_Src.size() - 1 == m_Pos))) {
+                if (m_Get().token != Tokens::Rparen) {
                     m_Err();
                 }
                 m_Advance();
@@ -200,7 +257,8 @@ class Parser {
                 m_Err();
             }
         } else if (tok.token == Tokens::Plus) {
-            if (not_eof()) {
+            if (not_eof() && m_Pos > 0) {
+                // we don't want syntaxes such as +5 to be valid
                 m_Advance();
                 return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseExpr(),
                                                       nullptr);
@@ -229,52 +287,7 @@ class Parser {
                 return std::make_shared<UserDefinedIdentifier>(name, body);
             } else if (m_Peek().token == Tokens::Lparen) {
                 m_Advance(2);  // skip the '('
-                std::string name = tok.value;
-                std::vector<TokenHandler> src(m_Src.begin() + m_Pos,
-                                              m_Src.end());
-                /*
-                 * create a subvector from the main source so
-                 * helper variables won't look for out of
-                 * range tokens i.e:
-                 * m_Src have a function definition that's
-                 * call another function: 'func(x) =
-                 * sqrt(x)+x`, get_rparen and get_assign will
-                 * look up at m_Src range for rparen and
-                 * assign tokens
-                 * ) and = for function 'func' will be found
-                 * and a unexpected sigfaults will happen
-                 */
-                auto get_rparen = std::find_if(
-                    src.begin(), src.end(),
-                    [](auto t) { return t.token == Tokens::Rparen; });
-                auto get_assign = std::find_if(
-                    src.begin(), src.end(),
-                    [](auto t) { return t.token == Tokens::Assign; });
-                bool contains_assign = get_assign != src.end();
-                bool invalid_assign = get_assign < get_rparen;
-                is_in_func_args = true;
-                std::vector<ptr_t> args;
-                if (contains_assign && !invalid_assign) {
-                    args = m_ParseFunctionDefArgs();
-                } else if (!contains_assign) {
-                    args = m_ParseFunctionArgs();
-                } else {
-                    m_Err();
-                }
-                m_Advance();
-                is_in_func_args = false;
-                if (contains_assign) {
-                    ptr_t body = m_ParseExpr();
-                    m_Advance(
-                        -1);  // so the parser won't ignore operations after the
-                              // closed rparen ')' since we're advancing each
-                              // function argument and advancing again after
-                              // parsing the arguments
-                    return std::make_shared<Function>(name, body, args);
-                } else {
-                    m_Advance(-1);
-                    return std::make_shared<FunctionCall>(name, args);
-                }
+                return m_ParseFunctionDefOrCall(tok);
             } else {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
@@ -283,7 +296,6 @@ class Parser {
             m_ParensCount--;
             if (m_ParensCount == 0) {
                 m_Advance();
-                is_in_func_args = false;
                 return m_ParseExpr();
             } else {
                 m_Err();
@@ -295,16 +307,22 @@ class Parser {
             m_Err();
         }
     }
-    void m_Err() { m_ThrowErr("Syntax Error"); }
-    void m_ThrowErr(std::string_view msg) {
-        std::stringstream ss;
-        ss << msg << " at " << m_Pos << " invalid token \"" << m_Get().value
-           << '"';
-        throw std::runtime_error(ss.str());
+    void m_Err() {
+        m_ThrowErr("SyntaxError",
+                   fmt::format("Unexpected token '{}'", m_Get().value));
+    }
+    void m_ThrowErr(const std::string& err, const std::string& msg) {
+        this->ei.name = err;
+        this->ei.err = msg;
+        this->ei.linepos = m_Get().pos;
+        throw ami::exceptions::BaseException(ei);
     }
 
    public:
-    explicit Parser(const std::vector<TokenHandler>& _tok) {
+    explicit Parser(const std::vector<TokenHandler>& _tok,
+                    const std::string& str, const std::string& file) {
+        this->ei =
+            ami::exceptions::ExceptionInterface{.file = file, .src = str};
         if (_tok.size() > 0)
             m_Src = _tok;
         else
@@ -316,6 +334,7 @@ class Parser {
         while (not_eof()) exprs.push_back(m_ParseExpr());
         return exprs;
     };
+    ami::exceptions::ExceptionInterface get_ei() const { return this->ei; }
 };
 
 }  // namespace ami

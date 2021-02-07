@@ -1,19 +1,17 @@
 #pragma once
+#include <string>
+
 #include "ast.hpp"
 #include "interpreter.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 
 namespace ami {
-double eval(const std::string& expression) {
+double eval(const std::string& expression, const std::string& file = "source") {
     ami::Lexer lexer(expression);
-    ami::Parser parser(lexer.lex());
-    ami::Interpreter inter;
-    return inter.visit(parser.parse()).val;
+    ami::Parser parser(lexer.lex(), expression, file);
+    auto parsed = parser.parse();
+    ami::Interpreter inter(parser.get_ei());
+    return inter.visit(parsed).val;
 }
-namespace literals {
-double operator"" _eval(const char* expression, std::size_t) {
-    return eval(expression);
-}
-}  // namespace literals
 }  // namespace ami
