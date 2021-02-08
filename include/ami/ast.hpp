@@ -1,4 +1,6 @@
 #pragma once
+#include <fmt/core.h>
+
 #include <cstdio>
 #include <map>
 #include <memory>
@@ -9,7 +11,21 @@
 #include "lexer.hpp"
 
 namespace ami {
-enum class Op { Minus, Plus, Div, Mult, Pow, Mod };
+enum class Op {
+    Minus,
+    Plus,
+    Div,
+    Mult,
+    Pow,
+    Mod,
+    LogicalAnd,
+    LogicalOr,
+    Equals,
+    Greater,
+    Less,
+    GreaterOrEqual,
+    LessOrEqual
+};
 enum class AstType {
     Number,
     BinaryOp,
@@ -19,17 +35,26 @@ enum class AstType {
     Function,
     UserDefinedIdentifier,
     NegativeExpr,
-    UserDefinedFunction
+    UserDefinedFunction,
+    IfExpr,
+    Boolean,
+    Comparaison,
+    LogicalExpr
 };
-static std::map<Op, char> ops_str{{Op::Minus, '-'}, {Op::Plus, '+'},
-                                  {Op::Div, '/'},   {Op::Mult, '*'},
-                                  {Op::Pow, '^'},   {Op::Mod, '%'}};
+static std::map<Op, char*> ops_str{
+    {Op::Minus, "-"},        {Op::Plus, "+"},
+    {Op::Div, "/"},          {Op::Mult, "*"},
+    {Op::Pow, "^"},          {Op::Mod, "%"},
+    {Op::LogicalAnd, "and"}, {Op::LogicalOr, "or"},
+    {Op::Greater, ">"},      {Op::GreaterOrEqual, ">="},
+    {Op::Less, "<"},         {Op::LessOrEqual, "<="},
+    {Op::Equals, "=="}};
 struct Expr {
     virtual std::string str() = 0;
     virtual AstType type() const { return AstType::Expr; }
     virtual ~Expr() = default;
 };
-struct Number : Expr {
+struct Number : public Expr {
     double val;
     explicit Number(double x) : val(x) {}
     std::string str() override {
@@ -38,6 +63,54 @@ struct Number : Expr {
         return out;
     }
     AstType type() const override { return AstType::Number; }
+    std::string to_str() { return std::to_string(val); }
+};
+struct Boolean : public Expr {
+    bool val;
+    std::string raw_value;
+    Boolean(std::string_view _val) : raw_value(_val) {
+        if (_val == "true")
+            val = true;
+        else if (_val == "false")
+            val = false;
+    }
+    Boolean(bool _val) : val(_val) {
+        if (_val)
+            raw_value = "true";
+        else if (!_val)
+            raw_value = "false";
+    }
+    AstType type() const override { return AstType::Boolean; }
+    std::string str() override {
+        return fmt::format("<Boolean value={}>", raw_value);
+    }
+};
+struct Comparaison : public Expr {
+    std::shared_ptr<Expr> lhs, rhs;
+    Op op;
+    Comparaison(Op o, const std::shared_ptr<Expr>& l,
+                const std::shared_ptr<Expr>& r)
+        : op(o), lhs(l), rhs(r) {}
+    AstType type() const override { return AstType::Comparaison; }
+    std::string str() override {
+        return fmt::format(
+            "<Comparaison left={{left}} op={{op}}, right={{right}}>",
+            fmt::arg("left", lhs->str()), fmt::arg("op", ops_str.at(op)),
+            fmt::arg("right", rhs->str()));
+    }
+};
+struct LogicalExpr : public Expr {
+    std::shared_ptr<Expr> lhs, rhs;
+    Op op;
+    LogicalExpr(Op o, const std::shared_ptr<Expr>& l,
+                const std::shared_ptr<Expr>& r)
+        : op(o), lhs(l), rhs(r) {}
+    AstType type() const override { return AstType::LogicalExpr; }
+    std::string str() override {
+        return fmt::format("<LogicalExpr lhs={{l}}, op={{op}}, rhs={{r}}>",
+                           fmt::arg("l", lhs->str()), fmt::arg("r", rhs->str()),
+                           fmt::arg("op", ops_str.at(op)));
+    }
 };
 struct NegativeExpr : public Expr {
     std::shared_ptr<Expr> value;
@@ -125,6 +198,20 @@ struct Function : public Expr {
             str += "null";
         }
         str += std::string("}, ") + "body={" + body->str() + "}>";
+        return str;
+    }
+};
+struct IfExpr : public Expr {
+    std::shared_ptr<Expr> body, stmt1, stmt2;
+    IfExpr(const std::shared_ptr<Expr>& body, const std::shared_ptr<Expr>& st1,
+           const std::shared_ptr<Expr>& st2)
+        : body(body), stmt1(st1), stmt2(st2) {}
+    AstType type() const override { return AstType::IfExpr; }
+    std::string str() override {
+        std::string str = fmt::format(
+            "<IfExpr body={{body}}, if_true={{stmt1}}, else={{stmt2}}>",
+            fmt::arg("body", body->str()), fmt::arg("stmt1", stmt1->str()),
+            fmt::arg("stmt2", stmt2->str()));
         return str;
     }
 };

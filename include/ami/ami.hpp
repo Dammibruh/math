@@ -7,11 +7,12 @@
 #include "parser.hpp"
 
 namespace ami {
-double eval(const std::string& expression, const std::string& file = "source") {
+std::variant<Number, Boolean, std::string> eval(
+    const std::string& expression, const std::string& file = "source") {
     ami::Lexer lexer(expression);
     ami::Parser parser(lexer.lex(), expression, file);
     auto parsed = parser.parse();
     ami::Interpreter inter(parser.get_ei());
-    return inter.visit(parsed).val;
+    return inter.visit(parsed);
 }
 }  // namespace ami

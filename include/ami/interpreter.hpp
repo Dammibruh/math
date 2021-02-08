@@ -8,7 +8,9 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include "builtins.hpp"
@@ -16,13 +18,14 @@
 #include "parser.hpp"
 
 namespace ami {
+using val_t = std::variant<Number, Boolean, std::string>;
 namespace scope {
-static std::unordered_map<std::string, double> userdefined;
+static std::unordered_map<std::string, val_t> userdefined;
 static std::unordered_map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using u_ptr = std::shared_ptr<Expr>;
-    std::unordered_map<std::string, double> arguments_scope;
+    std::unordered_map<std::string, val_t> arguments_scope;
     std::size_t call_count = 0;
     std::size_t max_call_count = 1'000;
     std::size_t m_Pos = 0;
@@ -39,73 +42,86 @@ class Interpreter {
                std::optional<std::size_t> pos = std::nullopt) {
         m_ThrowErr("Error", msg, pos);
     }
-    Number m_VisitAdd(BinaryOpExpr* boe) {
-        return Number(visit((boe->lhs)).val + visit((boe->rhs)).val);
+    bool m_IsValidOper(const val_t& vr) {
+        // to make operations only valid between numbers
+        return std::get_if<Number>(&vr) != nullptr;
     }
-    Number m_VisitSub(BinaryOpExpr* boe) {
-        return Number(visit((boe->lhs)).val - visit((boe->rhs)).val);
+    val_t m_VisitAdd(BinaryOpExpr* boe) {
+        val_t _lhs = visit(boe->lhs);
+        val_t _rhs = visit(boe->rhs);
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+            return Number(std::get<Number>(_lhs).val +
+                          std::get<Number>(_rhs).val);
+        else
+            m_Err("binary operation '+' is only valid for numbers");
     }
-    Number m_VisitDiv(BinaryOpExpr* boe) {
-        return Number(visit((boe->lhs)).val / visit((boe->rhs)).val);
+    val_t m_VisitSub(BinaryOpExpr* boe) {
+        val_t _lhs = visit(boe->lhs);
+        val_t _rhs = visit(boe->rhs);
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+            return Number(std::get<Number>(_lhs).val -
+                          std::get<Number>(_rhs).val);
+        else
+            m_Err("binary operation '-' is only valid for numbers");
     }
-    Number m_VisitMult(BinaryOpExpr* boe) {
-        return Number(visit((boe->lhs)).val * visit((boe->rhs)).val);
+    val_t m_VisitDiv(BinaryOpExpr* boe) {
+        val_t _lhs = visit(boe->lhs);
+        val_t _rhs = visit(boe->rhs);
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+            return Number(std::get<Number>(_lhs).val /
+                          std::get<Number>(_rhs).val);
+        else
+            m_Err("binary operation '/' is only valid for numbers");
     }
-    Number m_VisitIdent(Identifier* ident) {
-        bool is_negative = (ident->name.at(0) == '-');
-        std::string name = ident->name;
+    val_t m_VisitMult(BinaryOpExpr* boe) {
+        val_t _lhs = visit(boe->lhs);
+        val_t _rhs = visit(boe->rhs);
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+            return Number(std::get<Number>(_lhs).val *
+                          std::get<Number>(_rhs).val);
+        else
+            m_Err("binary operation '*' is only valid for numbers");
+    }
+    val_t m_VisitIdent(Identifier* ident) {
         bool is_a_function_arg =
-            arguments_scope.find(name) != arguments_scope.end();
+            arguments_scope.find(ident->name) != arguments_scope.end();
         bool is_a_defined_ident =
-            scope::userdefined.find(name) != scope::userdefined.end();
-        bool is_a_builtin_ident = ami::builtins::constants.find(name) !=
+            scope::userdefined.find(ident->name) != scope::userdefined.end();
+        bool is_a_builtin_ident = ami::builtins::constants.find(ident->name) !=
                                   ami::builtins::constants.end();
-        if (is_negative && name.size() > 1) {
-            name = std::string(name.begin() + 1, name.end());
-        }
         if (is_a_function_arg) {
-            return Number(arguments_scope.at(name));
+            return arguments_scope.at(ident->name);
         } else if (is_a_builtin_ident) {
-            if (is_negative)
-                return Number(-(ami::builtins::constants.at(name)));
-            else
-                return Number(ami::builtins::constants.at(name));
+            return Number(-(ami::builtins::constants.at(ident->name)));
         } else if ((!scope::userdefined.empty()) && is_a_defined_ident) {
-            if (is_negative)
-                return Number(-scope::userdefined.at(name));
-            else
-                return Number(scope::userdefined.at(name));
+            return scope::userdefined.at(ident->name);
         } else {
-            m_Err(fmt::format("use of undeclared identifier '{}'", name));
+            m_Err(
+                fmt::format("use of undeclared identifier '{}'", ident->name));
         }
     }
-    Number m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
+    val_t m_VisitUserDefinedIdentifier(UserDefinedIdentifier* udi) {
         bool is_builtin = ami::builtins::constants.find(udi->name) !=
                           ami::builtins::constants.end();
         if (is_builtin) {
             m_Err(fmt::format("Can't assign to built-in identifier '{}'",
                               udi->name));
         } else {
-            auto val = visit((udi->value)).val;
-            auto name = std::string(udi->name);
-            scope::userdefined[name] = val;
-            std::stringstream ss;
-            ss << name << " = " << val;
-            throw std::runtime_error(ss.str());
+            auto visited = visit(udi->value);
+            auto val = std::get_if<Number>(&visited);
+            auto val_str = std::get_if<std::string>(&visited);
+            std::string _value;
+            if (val != nullptr) {
+                _value = std::to_string(val->val);
+                scope::userdefined.insert_or_assign(udi->name, *val);
+            } else if (val_str != nullptr) {
+                _value = *val_str;
+                scope::userdefined.insert_or_assign(udi->name, *val_str);
+            }
+            return fmt::format("defined identifier '{}'", udi->name);
         }
     }
-    Number m_VisitFunction(FunctionCall* fc) {
-        /*
-         * TODO:
-         * add a addFunction function and object instead of separating builtin
-         * and userdefined fumctions ,basically copy v8 engine's
-         * functionCallBackInfo
-         * or keep Function object also split this fat boi function into small
-         * functions
-         * use variant for string and Number and a fmt/error function
-         * keep code clean and documented, maybe use unique pointer for 500ns
-         * performance gain ??????
-         * */
+    val_t m_VisitFunction(FunctionCall* fc) {
         // recursion check, haha die segmentation fault
         call_count++;
         if (call_count >= max_call_count) {
@@ -114,14 +130,10 @@ class Interpreter {
             m_Err(fmt::format("{} called recursively for {}", fc->name, temp),
                   0);
         }
-        bool is_negative = fc->name.at(0) == '-';
-        std::string name =
-            is_negative ? std::string(fc->name.begin() + 1, fc->name.end())
-                        : fc->name;
         decltype(ami::builtins::functions)::iterator get_builtin =
-            ami::builtins::functions.find(name);
+            ami::builtins::functions.find(fc->name);
         bool is_builtin = get_builtin != ami::builtins::functions.end();
-        auto get_userdefined = scope::userdefined_functions.find(name);
+        auto get_userdefined = scope::userdefined_functions.find(fc->name);
         bool is_userdefined =
             get_userdefined != scope::userdefined_functions.end();
         // helper variables
@@ -132,23 +144,21 @@ class Interpreter {
                 m_Err(fmt::format(
                     "mismatched arguments for function call '{}' "
                     ",called with {} argument, expected {} ",
-                    name, args.size(), get_builtin->second.args_count));
+                    fc->name, args.size(), get_builtin->second.args_count));
             }
             // evaluate each passed argument
-            std::for_each(args.begin(), args.end(),
-                          [&parsed_args, this](const auto& arg) {
-                              parsed_args.push_back(visit(arg));
-                          });
-            if (is_negative)
-                return Number(-(get_builtin->second.callback(parsed_args)));
-            else
-                return Number(get_builtin->second.callback(parsed_args));
+            std::for_each(
+                args.begin(), args.end(),
+                [&parsed_args, this](const auto& arg) {
+                    parsed_args.push_back(std::get<Number>(visit(arg)));
+                });
+            return Number(get_builtin->second.callback(parsed_args));
         } else if (is_userdefined) {
             if (args.size() != get_userdefined->second.arguments.size()) {
                 m_Err(
                     fmt::format("mismatched arguments for function call '{}' "
                                 ",called with {} argument, expected {} ",
-                                name, args.size(),
+                                fc->name, args.size(),
                                 get_userdefined->second.arguments.size()));
             }
             std::vector<std::shared_ptr<Expr>> fc_args =
@@ -157,22 +167,17 @@ class Interpreter {
                 Identifier* ident =
                     static_cast<Identifier*>(fc_args.at(i).get());
                 std::string cname = ident->name;
-                Number num = visit(args.at(i));
-                arguments_scope[cname] = num.val;
+                arguments_scope.insert_or_assign(cname, visit(args.at(i)));
             }
             std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
             // the function's body is evaluated only when it's called
-            Number out = visit(fc_body);
-            if (is_negative)
-                return Number(-out.val);
-            else
-                return out;
+            return visit(fc_body);
 
         } else {
-            m_Err(fmt::format("use of undeclared function '{}'", name));
+            m_Err(fmt::format("use of undeclared function '{}'", fc->name));
         }
     }
-    Number m_VisitFunctionDef(Function* func) {
+    val_t m_VisitFunctionDef(Function* func) {
         std::string name = func->name;
         bool is_builtin = ami::builtins::functions.find(name) !=
                           ami::builtins::functions.end();
@@ -181,25 +186,111 @@ class Interpreter {
         } else {
             scope::userdefined_functions.insert_or_assign(
                 name, Function(func->name, func->body, func->arguments));
-            return Number(
-                0);  // return std::variant for string messages
-                     // instead of returning numbers cuz it's confusing and dumb
+            return fmt::format("defined function '{}'", name);
         }
     }
-    Number m_VisitMod(BinaryOpExpr* boe) {
-        return Number(std::fmod(visit((boe->lhs)).val, visit((boe->rhs)).val));
+    val_t m_VisitMod(BinaryOpExpr* boe) {
+        val_t _lhs = visit(boe->lhs);
+        val_t _rhs = visit(boe->rhs);
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+            return Number(std::fmod(std::get<Number>(_lhs).val,
+                                    std::get<Number>(_rhs).val));
+        else
+            m_Err("binary operation '%%' is only valid for numbers");
     }
-    Number m_VisitPow(BinaryOpExpr* boe) {
-        return Number(std::pow(visit((boe->lhs)).val, visit((boe->rhs)).val));
+    val_t m_VisitPow(BinaryOpExpr* boe) {
+        val_t _lhs = visit(boe->lhs);
+        val_t _rhs = visit(boe->rhs);
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+            return Number(std::pow(std::get<Number>(_lhs).val,
+                                   std::get<Number>(_rhs).val));
+        else
+            m_Err("binary operation '^' is only valid for numbers");
     }
-    Number m_VisitNegative(NegativeExpr* ex) {
-        return Number(-visit(ex->value).val);
+    val_t m_VisitNegative(NegativeExpr* ex) {
+        val_t val = visit(ex->value);
+        if (m_IsValidOper(val))
+            return Number(-std::get<Number>(val).val);
+        else
+            m_Err("unary operator '-' is only valid for numbers");
     }
-    Number m_VisitNumber(Number* num) { return Number(num->val); }
+    bool m_IsBoolOrNum(const val_t& oht) {}
+    val_t m_VisitLogicalNot(LogicalExpr*) {}
+    val_t m_VisitLogicalAnd(LogicalExpr* lexpr) {
+        val_t _lhs = visit(lexpr->lhs);
+        val_t _rhs = visit(lexpr->rhs);
+        Number* lhs_get_number = std::get_if<Number>(&_lhs);
+        Boolean* lhs_get_bool = std::get_if<Boolean>(&_lhs);
+        Number* rhs_get_number = std::get_if<Number>(&_rhs);
+        Boolean* rhs_get_bool = std::get_if<Boolean>(&_rhs);
+        bool lhs_is_number = lhs_get_number != nullptr;
+        bool lhs_is_bool = lhs_get_bool != nullptr;
+        bool rhs_is_number = rhs_get_number != nullptr;
+        bool rhs_is_bool = rhs_get_bool != nullptr;
+        if (lhs_is_number && rhs_is_number) {
+            return (Boolean(lhs_get_number->val && rhs_get_number->val));
+        } else if (lhs_is_bool && rhs_is_bool) {
+            return (Boolean(lhs_get_bool->val && rhs_get_bool->val));
+        } else if (lhs_is_number && rhs_is_bool) {
+            return (Boolean(lhs_get_number->val && rhs_get_bool->val));
+        } else if (lhs_is_bool && rhs_is_number) {
+            return (Boolean(lhs_get_bool->val && rhs_get_number->val));
+        } else {
+            m_Err("logical 'and' is only valid for numbers and booleans");
+        }
+    }
+    val_t m_VisitLogicalOr(LogicalExpr* lexpr) {
+        val_t _lhs = visit(lexpr->lhs);
+        val_t _rhs = visit(lexpr->rhs);
+        Number* lhs_get_number = std::get_if<Number>(&_lhs);
+        Boolean* lhs_get_bool = std::get_if<Boolean>(&_lhs);
+        Number* rhs_get_number = std::get_if<Number>(&_rhs);
+        Boolean* rhs_get_bool = std::get_if<Boolean>(&_rhs);
+        bool lhs_is_number = lhs_get_number != nullptr;
+        bool lhs_is_bool = lhs_get_bool != nullptr;
+        bool rhs_is_number = rhs_get_number != nullptr;
+        bool rhs_is_bool = rhs_get_bool != nullptr;
+        if (lhs_is_number && rhs_is_number) {
+            return (Boolean(lhs_get_number->val || rhs_get_number->val));
+        } else if (lhs_is_bool && rhs_is_bool) {
+            return (Boolean(lhs_get_bool->val || rhs_get_bool->val));
+        } else if (lhs_is_number && rhs_is_bool) {
+            return (Boolean(lhs_get_number->val || rhs_get_bool->val));
+        } else if (lhs_is_bool && rhs_is_number) {
+            return (Boolean(lhs_get_bool->val || rhs_get_number->val));
+        } else {
+            m_Err("logical 'or' is only valid for numbers and booleans");
+        }
+    }
+    val_t m_VisitEquals(Comparaison* lexpr) {
+        val_t _lhs = visit(lexpr->lhs);
+        val_t _rhs = visit(lexpr->rhs);
+        Number* lhs_get_number = std::get_if<Number>(&_lhs);
+        Boolean* lhs_get_bool = std::get_if<Boolean>(&_lhs);
+        Number* rhs_get_number = std::get_if<Number>(&_rhs);
+        Boolean* rhs_get_bool = std::get_if<Boolean>(&_rhs);
+        bool lhs_is_number = lhs_get_number != nullptr;
+        bool lhs_is_bool = lhs_get_bool != nullptr;
+        bool rhs_is_number = rhs_get_number != nullptr;
+        bool rhs_is_bool = rhs_get_bool != nullptr;
+        if (lhs_is_number && rhs_is_number) {
+            return (Boolean(lhs_get_number->val == rhs_get_number->val));
+        } else if (lhs_is_bool && rhs_is_bool) {
+            return (Boolean(lhs_get_bool->val == rhs_get_bool->val));
+        } else if (lhs_is_number && rhs_is_bool) {
+            return (Boolean(lhs_get_number->val == rhs_get_bool->val));
+        } else if (lhs_is_bool && rhs_is_number) {
+            return (Boolean(lhs_get_number->val == rhs_get_bool->val));
+        } else {
+            m_Err("logical '==' is only valid for numbers and booleans");
+        }
+    }
+    val_t m_VisitNumber(Number* num) { return Number(num->val); }
+    val_t m_VisitBool(Boolean* _b) { return *_b; }
 
    public:
     Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
-    Number visit(u_ptr expr) {
+    val_t visit(u_ptr expr) {
         m_Pos++;
         switch (expr->type()) {
             default: {
@@ -225,6 +316,17 @@ class Interpreter {
                         return m_VisitMod(bopexpr);
                 }
             }
+            case AstType::LogicalExpr: {
+                LogicalExpr* lexpr = static_cast<LogicalExpr*>(expr.get());
+                switch (lexpr->op) {
+                    default:
+                        m_Err("invalid logical operator");
+                    case Op::LogicalAnd:
+                        return m_VisitLogicalAnd(lexpr);
+                    case Op::LogicalOr:
+                        return m_VisitLogicalOr(lexpr);
+                }
+            }
             case AstType::Number: {
                 return m_VisitNumber(static_cast<Number*>(expr.get()));
             }
@@ -244,13 +346,13 @@ class Interpreter {
             case AstType::NegativeExpr: {
                 return m_VisitNegative(static_cast<NegativeExpr*>(expr.get()));
             }
+            case AstType::Boolean: {
+                return m_VisitBool(static_cast<Boolean*>(expr.get()));
+            }
         }
     }
-    void addConstant(const std::string& name, double val) {
-        scope::userdefined[name] = val;
-    }
-    Number visitvec(const std::vector<u_ptr>& exprs) {
-        Number out(0);
+    val_t visitvec(const std::vector<u_ptr>& exprs) {
+        val_t out = visit(exprs.at(0));
         for (auto& elm : exprs) out = visit(elm);
         return out;
     }

@@ -33,7 +33,7 @@ class Parser {
     bool not_eof() { return m_Pos < m_Src.size(); }
     bool m_IsDigit(const std::string& str) {
         for (auto& c : str)
-            if (!std::isdigit(c) && c != '-') return false;
+            if (!std::isdigit(c)) return false;
         return true;
     }
     bool m_IsAnOp(Tokens tok) {
@@ -46,6 +46,8 @@ class Parser {
                (tok.token == Tokens::Rparen) || (tok.token == Tokens::Digit) ||
                (tok.token == Tokens::Delim) || (tok.token == Tokens::Edelim);
     }
+    ptr_t m_ParseIfStmtBody() {}
+    ptr_t m_ParseIfStmtStmt() {}
     std::vector<ptr_t> m_ParseFunctionArgs() {
         std::vector<ptr_t> args{};
         if (m_Get().token != Tokens::Rparen) {
@@ -161,7 +163,8 @@ class Parser {
     }
     bool m_IsValidPunc(TokenHandler tok) {
         return (tok.token == Tokens::Digit || tok.token == Tokens::Dot ||
-                tok.token == Tokens::Delim || tok.token == Tokens::Edelim);
+                tok.token == Tokens::Delim || tok.token == Tokens::Edelim ||
+                tok.token == Tokens::Minus);
     }
     std::string m_GetDigit() {
         std::string temp{};
@@ -184,6 +187,14 @@ class Parser {
                     temp += m_Get().value;
                     contains_e = true;
                 }
+            } else if (m_Get().token == Tokens::Minus) {
+                if (contains_e && m_Prev().token == Tokens::Edelim) {
+                    temp += m_Get().value;
+                    // if the digit is 1e-10 parse the e-10 then break cuz we
+                    // don't want to ignore the minus operator
+                } else {
+                    break;
+                }
             }
             m_Advance();
         }
@@ -199,6 +210,15 @@ class Parser {
         else
             return;
     }
+    bool m_IsCompareToken(Tokens tok) {
+        return (tok == Tokens::GreaterThan) ||
+               (tok == Tokens::GreaterThanOrEqual) ||
+               (tok == Tokens::LessThan) || (tok == Tokens::LessThanOrEqual);
+    }
+    bool m_IsLogical(Tokens tok) {
+        return (tok == Tokens::KeywordAnd) || m_IsCompareToken(tok) ||
+               (tok == Tokens::KeywordOr);
+    }
 
     ptr_t m_ParseExpr() {
         ptr_t out = m_ParseTerm();
@@ -207,11 +227,11 @@ class Parser {
             if (m_Get().token == Tokens::Plus) {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Plus, out,
-                                                     m_ParseExpr());
+                                                     m_ParseTerm());
             } else if (m_Get().token == Tokens::Minus) {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Minus, out,
-                                                     m_ParseExpr());
+                                                     m_ParseTerm());
             }
         }
         return out;
@@ -233,7 +253,7 @@ class Parser {
         return out;
     }
     ptr_t m_ParseSu() {
-        ptr_t out = m_ParseFactor();
+        ptr_t out = m_ParseLogical();
         while (not_eof() &&
                (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
             if (m_Get().token == Tokens::Pow) {
@@ -244,6 +264,49 @@ class Parser {
                 m_Advance();
                 out =
                     std::make_shared<BinaryOpExpr>(Op::Mod, out, m_ParseExpr());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseLogical() {
+        ptr_t out = m_ParseFactor();
+        while (not_eof() && (m_Get().token == Tokens::KeywordIf ||
+                             m_Get().token == Tokens::KeywordElse ||
+                             m_IsLogical(m_Get().token))) {
+            if (m_Get().token == Tokens::KeywordIf) {
+                m_Advance();
+                auto stmt1 = m_ParseExpr();
+                std::shared_ptr<Expr> stmt2 = nullptr;
+                if (m_Get().token == Tokens::KeywordElse) stmt2 = m_ParseExpr();
+                out = std::make_shared<IfExpr>(out, stmt1, stmt2);
+            } else if (m_Get().token == Tokens::GreaterThan) {
+                m_Advance();
+                out = std::make_shared<Comparaison>(Op::Greater, out,
+                                                    m_ParseExpr());
+            } else if (m_Get().token == Tokens::GreaterThanOrEqual) {
+                m_Advance();
+                out = std::make_shared<Comparaison>(Op::GreaterOrEqual, out,
+                                                    m_ParseExpr());
+            } else if (m_Get().token == Tokens::LessThan) {
+                m_Advance();
+                out =
+                    std::make_shared<Comparaison>(Op::Less, out, m_ParseExpr());
+            } else if (m_Get().token == Tokens::LessThanOrEqual) {
+                m_Advance();
+                out = std::make_shared<Comparaison>(Op::LessOrEqual, out,
+                                                    m_ParseExpr());
+            } else if (m_Get().token == Tokens::KeywordAnd) {
+                m_Advance();
+                out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
+                                                    m_ParseExpr());
+            } else if (m_Get().token == Tokens::KeywordOr) {
+                m_Advance();
+                out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
+                                                    m_ParseExpr());
+            } else if (m_Get().token == Tokens::Equals) {
+                m_Advance();
+                out = std::make_shared<Comparaison>(Op::Equals, out,
+                                                    m_ParseExpr());
             }
         }
         return out;
@@ -263,14 +326,11 @@ class Parser {
             }
             m_Err();
         } else if (tok.token == Tokens::Digit) {
-            if (m_IsDigit(tok.value) && not_eof()) {
-                if (not_eof())
-                    return std::make_shared<Number>(std::stod(m_GetDigit()));
+            if (not_eof()) {
+                return std::make_shared<Number>(std::stod(m_GetDigit()));
             } else {
-                m_Err(
-                    fmt::format("Expected operation or expression after '{}', "
-                                "found '{}' instead",
-                                tok.value, m_Get().value));
+                m_Advance();
+                return std::make_shared<Number>(std::stod(tok.value));
             }
         } else if (tok.token == Tokens::Plus) {
             if (not_eof() && m_Pos > 0) {
@@ -285,8 +345,11 @@ class Parser {
         } else if (tok.token == Tokens::Minus) {
             if (not_eof()) {
                 m_Advance();
-                if (m_Get().token == Tokens::Lparen) {
-                    m_Advance();
+                if (m_Get().token == Tokens::Lparen ||
+                    m_Get().token == Tokens::Identifier ||
+                    m_Get().token == Tokens::Digit ||
+                    m_Get().token == Tokens::Boolean) {
+                    // m_Advance();
                     return std::make_shared<NegativeExpr>(m_ParseExpr());
                     // much easier to handle expressions like `5-(-(-(-5)))`
                 } else {
@@ -320,6 +383,9 @@ class Parser {
                                 "for '(' found '{}' instead",
                                 tok.value));
             }
+        } else if (tok.token == Tokens::Boolean) {
+            m_Advance();
+            return std::make_shared<Boolean>(tok.value);
         } else if (tok.token == Tokens::Semicolon) {
             m_Advance(2);
             return m_ParseExpr();
