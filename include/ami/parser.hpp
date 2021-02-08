@@ -393,7 +393,7 @@ class Parser {
             m_Err();
         }
     }
-    void m_Err() { m_Err(fmt::format("Unexpexted token '{}'", m_Get().value)); }
+    void m_Err() { m_Err(fmt::format("Unexpected token '{}'", m_Get().value)); }
     void m_Err(const std::string& msg) { m_ThrowErr("SyntaxError", msg); }
     void m_ThrowErr(const std::string& err, const std::string& msg) {
         this->ei.name = err;

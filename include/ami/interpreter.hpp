@@ -108,16 +108,7 @@ class Interpreter {
                               udi->name));
         } else {
             auto visited = visit(udi->value);
-            auto val = std::get_if<Number>(&visited);
-            auto val_str = std::get_if<std::string>(&visited);
-            std::string _value;
-            if (val != nullptr) {
-                _value = std::to_string(val->val);
-                scope::userdefined.insert_or_assign(udi->name, *val);
-            } else if (val_str != nullptr) {
-                _value = *val_str;
-                scope::userdefined.insert_or_assign(udi->name, *val_str);
-            }
+            scope::userdefined.insert_or_assign(udi->name, visited);
             return fmt::format("defined identifier '{}'", udi->name);
         }
     }
