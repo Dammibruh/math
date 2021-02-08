@@ -93,10 +93,10 @@ struct Comparaison : public Expr {
         : op(o), lhs(l), rhs(r) {}
     AstType type() const override { return AstType::Comparaison; }
     std::string str() override {
-        return fmt::format(
-            "<Comparaison left={{left}} op={{op}}, right={{right}}>",
-            fmt::arg("left", lhs->str()), fmt::arg("op", ops_str.at(op)),
-            fmt::arg("right", rhs->str()));
+        return fmt::format("<Comparaison left={left} op={op}, right={right}>",
+                           fmt::arg("left", lhs->str()),
+                           fmt::arg("op", ops_str.at(op)),
+                           fmt::arg("right", rhs->str()));
     }
 };
 struct LogicalExpr : public Expr {

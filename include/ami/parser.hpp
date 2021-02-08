@@ -211,13 +211,12 @@ class Parser {
             return;
     }
     bool m_IsCompareToken(Tokens tok) {
-        return (tok == Tokens::GreaterThan) ||
+        return (tok == Tokens::GreaterThan) || (tok == Tokens::Equals) ||
                (tok == Tokens::GreaterThanOrEqual) ||
                (tok == Tokens::LessThan) || (tok == Tokens::LessThanOrEqual);
     }
     bool m_IsLogical(Tokens tok) {
-        return (tok == Tokens::KeywordAnd) || m_IsCompareToken(tok) ||
-               (tok == Tokens::KeywordOr);
+        return (tok == Tokens::KeywordAnd) || (tok == Tokens::KeywordOr);
     }
 
     ptr_t m_ParseExpr() {
@@ -269,7 +268,7 @@ class Parser {
         return out;
     }
     ptr_t m_ParseLogical() {
-        ptr_t out = m_ParseFactor();
+        ptr_t out = m_ParseComp();
         while (not_eof() && (m_Get().token == Tokens::KeywordIf ||
                              m_Get().token == Tokens::KeywordElse ||
                              m_IsLogical(m_Get().token))) {
@@ -279,7 +278,22 @@ class Parser {
                 std::shared_ptr<Expr> stmt2 = nullptr;
                 if (m_Get().token == Tokens::KeywordElse) stmt2 = m_ParseExpr();
                 out = std::make_shared<IfExpr>(out, stmt1, stmt2);
-            } else if (m_Get().token == Tokens::GreaterThan) {
+            } else if (m_Get().token == Tokens::KeywordAnd) {
+                m_Advance();
+                out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
+                                                    m_ParseExpr());
+            } else if (m_Get().token == Tokens::KeywordOr) {
+                m_Advance();
+                out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
+                                                    m_ParseExpr());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseComp() {
+        ptr_t out = m_ParseFactor();
+        while (not_eof() && (m_IsCompareToken(m_Get().token))) {
+            if (m_Get().token == Tokens::GreaterThan) {
                 m_Advance();
                 out = std::make_shared<Comparaison>(Op::Greater, out,
                                                     m_ParseExpr());
@@ -294,14 +308,6 @@ class Parser {
             } else if (m_Get().token == Tokens::LessThanOrEqual) {
                 m_Advance();
                 out = std::make_shared<Comparaison>(Op::LessOrEqual, out,
-                                                    m_ParseExpr());
-            } else if (m_Get().token == Tokens::KeywordAnd) {
-                m_Advance();
-                out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
-                                                    m_ParseExpr());
-            } else if (m_Get().token == Tokens::KeywordOr) {
-                m_Advance();
-                out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
                                                     m_ParseExpr());
             } else if (m_Get().token == Tokens::Equals) {
                 m_Advance();

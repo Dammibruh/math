@@ -163,12 +163,14 @@ class Lexer {
                             m_AddTok(Tokens::Assign, "=");
                             break;
                         case '=':
+                            m_Advance();
                             m_AddTok(Tokens::Equals, "==");
                             break;
                     }
                     break;
                 case '<':
                     if (m_Peek() == '=') {
+                        m_Advance();
                         m_AddTok(Tokens::LessThanOrEqual, "<=");
                     } else {
                         m_AddTok(Tokens::LessThan, "<");
@@ -176,6 +178,7 @@ class Lexer {
                     break;
                 case '>':
                     if (m_Peek() == '=') {
+                        m_Advance();
                         m_AddTok(Tokens::GreaterThanOrEqual, ">=");
                     } else {
                         m_AddTok(Tokens::GreaterThan, ">");

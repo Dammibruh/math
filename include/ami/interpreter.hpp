@@ -276,6 +276,64 @@ class Interpreter {
             m_Err("logical '==' is only valid for numbers and booleans");
         }
     }
+    val_t m_VisitGreaterThan(Comparaison* lexpr) {
+        val_t _lhs = visit(lexpr->lhs);
+        val_t _rhs = visit(lexpr->rhs);
+        Number* lhs_get_number = std::get_if<Number>(&_lhs);
+        Boolean* lhs_get_bool = std::get_if<Boolean>(&_lhs);
+        Number* rhs_get_number = std::get_if<Number>(&_rhs);
+        Boolean* rhs_get_bool = std::get_if<Boolean>(&_rhs);
+        bool lhs_is_number = lhs_get_number != nullptr;
+        bool lhs_is_bool = lhs_get_bool != nullptr;
+        bool rhs_is_number = rhs_get_number != nullptr;
+        bool rhs_is_bool = rhs_get_bool != nullptr;
+        if (lhs_is_number && rhs_is_number) {
+            return (Boolean(lhs_get_number->val > rhs_get_number->val));
+        } else if (lhs_is_bool && rhs_is_bool) {
+            return (Boolean(lhs_get_bool->val > rhs_get_bool->val));
+        } else if (lhs_is_number && rhs_is_bool) {
+            return (Boolean(lhs_get_number->val > rhs_get_bool->val));
+        } else if (lhs_is_bool && rhs_is_number) {
+            return (Boolean(lhs_get_number->val > rhs_get_bool->val));
+        } else {
+            m_Err("logical '>' is only valid for numbers and booleans");
+        }
+    }
+    val_t m_VisitLess(Comparaison* lexpr) {
+        val_t _lhs = visit(lexpr->lhs);
+        val_t _rhs = visit(lexpr->rhs);
+        Number* lhs_get_number = std::get_if<Number>(&_lhs);
+        Boolean* lhs_get_bool = std::get_if<Boolean>(&_lhs);
+        Number* rhs_get_number = std::get_if<Number>(&_rhs);
+        Boolean* rhs_get_bool = std::get_if<Boolean>(&_rhs);
+        bool lhs_is_number = lhs_get_number != nullptr;
+        bool lhs_is_bool = lhs_get_bool != nullptr;
+        bool rhs_is_number = rhs_get_number != nullptr;
+        bool rhs_is_bool = rhs_get_bool != nullptr;
+        if (lhs_is_number && rhs_is_number) {
+            return (Boolean(lhs_get_number->val < rhs_get_number->val));
+        } else if (lhs_is_bool && rhs_is_bool) {
+            return (Boolean(lhs_get_bool->val < rhs_get_bool->val));
+        } else if (lhs_is_number && rhs_is_bool) {
+            return (Boolean(lhs_get_number->val < rhs_get_bool->val));
+        } else if (lhs_is_bool && rhs_is_number) {
+            return (Boolean(lhs_get_number->val < rhs_get_bool->val));
+        } else {
+            m_Err("logical '<' is only valid for numbers and booleans");
+        }
+    }
+    val_t m_VisitLessOrEqual(Comparaison* comp) {
+        auto l = m_VisitLess(comp);
+        auto r = m_VisitEquals(comp);
+        return Boolean(std::get_if<Boolean>(&l)->val ||
+                       std::get_if<Boolean>(&r)->val);
+    }
+    val_t m_VisitGreaterOrEqual(Comparaison* comp) {
+        auto l = m_VisitGreaterThan(comp);
+        auto r = m_VisitEquals(comp);
+        return Boolean(std::get_if<Boolean>(&l)->val ||
+                       std::get_if<Boolean>(&r)->val);
+    }
     val_t m_VisitNumber(Number* num) { return Number(num->val); }
     val_t m_VisitBool(Boolean* _b) { return *_b; }
 
@@ -316,6 +374,23 @@ class Interpreter {
                         return m_VisitLogicalAnd(lexpr);
                     case Op::LogicalOr:
                         return m_VisitLogicalOr(lexpr);
+                }
+            }
+            case AstType::Comparaison: {
+                Comparaison* comp = static_cast<Comparaison*>(expr.get());
+                switch (comp->op) {
+                    default:
+                        m_Err("invalid comparaison operator");
+                    case Op::Greater:
+                        return m_VisitGreaterThan(comp);
+                    case Op::GreaterOrEqual:
+                        return m_VisitGreaterOrEqual(comp);
+                    case Op::Less:
+                        return m_VisitLess(comp);
+                    case Op::LessOrEqual:
+                        return m_VisitLessOrEqual(comp);
+                    case Op::Equals:
+                        return m_VisitEquals(comp);
                 }
             }
             case AstType::Number: {
