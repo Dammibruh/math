@@ -64,7 +64,7 @@ class Parser {
                     m_ThrowErr("ParseError",
                                "EOF while parsing function arguments ");
                 } else {
-                    args.push_back(m_ParseExpr());
+                    args.push_back(m_ParseComp());
                 }
             } while (m_Get().token != Tokens::Rparen);
         }
@@ -88,7 +88,7 @@ class Parser {
                     m_ThrowErr("ParseError",
                                "EOF while parsing function arguments ");
                 } else {
-                    ptr_t temp = m_ParseExpr();
+                    ptr_t temp = m_ParseComp();
                     if (temp->type() == AstType::Identifier) {
                         args.push_back(temp);
                     } else {
@@ -140,7 +140,7 @@ class Parser {
         }
         m_Advance();
         if (contains_assign) {
-            ptr_t body = m_ParseExpr();
+            ptr_t body = m_ParseComp();
             m_Advance(-1);
             // so the parser won't ignore operations after the
             // closed rparen ')' since we're advancing each
@@ -154,10 +154,10 @@ class Parser {
         }
     }
     ptr_t m_ParseIdentAssign() {
-        ptr_t value = m_ParseExpr();
+        ptr_t value = m_ParseComp();
         while (not_eof() && m_Get().token != Tokens::Semicolon) {
             m_Advance();
-            value = m_ParseExpr();
+            value = m_ParseComp();
         }
         return value;
     }
@@ -219,79 +219,8 @@ class Parser {
         return (tok == Tokens::KeywordAnd) || (tok == Tokens::KeywordOr);
     }
 
-    ptr_t m_ParseExpr() {
-        ptr_t out = m_ParseTerm();
-        while (not_eof() && (m_Get().token == Tokens::Plus ||
-                             m_Get().token == Tokens::Minus)) {
-            if (m_Get().token == Tokens::Plus) {
-                m_Advance();
-                out = std::make_shared<BinaryOpExpr>(Op::Plus, out,
-                                                     m_ParseTerm());
-            } else if (m_Get().token == Tokens::Minus) {
-                m_Advance();
-                out = std::make_shared<BinaryOpExpr>(Op::Minus, out,
-                                                     m_ParseTerm());
-            }
-        }
-        return out;
-    }
-    ptr_t m_ParseTerm() {
-        ptr_t out = m_ParseSu();
-        while (not_eof() && (m_Get().token == Tokens::Mult ||
-                             m_Get().token == Tokens::Div)) {
-            if (m_Get().token == Tokens::Mult) {
-                m_Advance();
-                out = std::make_shared<BinaryOpExpr>(Op::Mult, out,
-                                                     m_ParseExpr());
-            } else if (m_Get().token == Tokens::Div) {
-                m_Advance();
-                out =
-                    std::make_shared<BinaryOpExpr>(Op::Div, out, m_ParseExpr());
-            }
-        }
-        return out;
-    }
-    ptr_t m_ParseSu() {
-        ptr_t out = m_ParseLogical();
-        while (not_eof() &&
-               (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
-            if (m_Get().token == Tokens::Pow) {
-                m_Advance();
-                out =
-                    std::make_shared<BinaryOpExpr>(Op::Pow, out, m_ParseExpr());
-            } else if (m_Get().token == Tokens::Mod) {
-                m_Advance();
-                out =
-                    std::make_shared<BinaryOpExpr>(Op::Mod, out, m_ParseExpr());
-            }
-        }
-        return out;
-    }
-    ptr_t m_ParseLogical() {
-        ptr_t out = m_ParseComp();
-        while (not_eof() && (m_Get().token == Tokens::KeywordIf ||
-                             m_Get().token == Tokens::KeywordElse ||
-                             m_IsLogical(m_Get().token))) {
-            if (m_Get().token == Tokens::KeywordIf) {
-                m_Advance();
-                auto stmt1 = m_ParseExpr();
-                std::shared_ptr<Expr> stmt2 = nullptr;
-                if (m_Get().token == Tokens::KeywordElse) stmt2 = m_ParseExpr();
-                out = std::make_shared<IfExpr>(out, stmt1, stmt2);
-            } else if (m_Get().token == Tokens::KeywordAnd) {
-                m_Advance();
-                out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
-                                                    m_ParseExpr());
-            } else if (m_Get().token == Tokens::KeywordOr) {
-                m_Advance();
-                out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
-                                                    m_ParseExpr());
-            }
-        }
-        return out;
-    }
     ptr_t m_ParseComp() {
-        ptr_t out = m_ParseFactor();
+        ptr_t out = m_ParseExpr();
         while (not_eof() && (m_IsCompareToken(m_Get().token))) {
             if (m_Get().token == Tokens::GreaterThan) {
                 m_Advance();
@@ -317,13 +246,84 @@ class Parser {
         }
         return out;
     }
+    ptr_t m_ParseExpr() {
+        ptr_t out = m_ParseTerm();
+        while (not_eof() && (m_Get().token == Tokens::Plus ||
+                             m_Get().token == Tokens::Minus)) {
+            if (m_Get().token == Tokens::Plus) {
+                m_Advance();
+                out = std::make_shared<BinaryOpExpr>(Op::Plus, out,
+                                                     m_ParseComp());
+            } else if (m_Get().token == Tokens::Minus) {
+                m_Advance();
+                out = std::make_shared<BinaryOpExpr>(Op::Minus, out,
+                                                     m_ParseComp());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseTerm() {
+        ptr_t out = m_ParseSu();
+        while (not_eof() && (m_Get().token == Tokens::Mult ||
+                             m_Get().token == Tokens::Div)) {
+            if (m_Get().token == Tokens::Mult) {
+                m_Advance();
+                out = std::make_shared<BinaryOpExpr>(Op::Mult, out,
+                                                     m_ParseComp());
+            } else if (m_Get().token == Tokens::Div) {
+                m_Advance();
+                out =
+                    std::make_shared<BinaryOpExpr>(Op::Div, out, m_ParseComp());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseSu() {
+        ptr_t out = m_ParseLogical();
+        while (not_eof() &&
+               (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
+            if (m_Get().token == Tokens::Pow) {
+                m_Advance();
+                out =
+                    std::make_shared<BinaryOpExpr>(Op::Pow, out, m_ParseComp());
+            } else if (m_Get().token == Tokens::Mod) {
+                m_Advance();
+                out =
+                    std::make_shared<BinaryOpExpr>(Op::Mod, out, m_ParseComp());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseLogical() {
+        ptr_t out = m_ParseFactor();
+        while (not_eof() && (m_Get().token == Tokens::KeywordIf ||
+                             m_Get().token == Tokens::KeywordElse ||
+                             m_IsLogical(m_Get().token))) {
+            if (m_Get().token == Tokens::KeywordIf) {
+                m_Advance();
+                auto stmt1 = m_ParseComp();
+                std::shared_ptr<Expr> stmt2 = nullptr;
+                if (m_Get().token == Tokens::KeywordElse) stmt2 = m_ParseComp();
+                out = std::make_shared<IfExpr>(out, stmt1, stmt2);
+            } else if (m_Get().token == Tokens::KeywordAnd) {
+                m_Advance();
+                out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
+                                                    m_ParseComp());
+            } else if (m_Get().token == Tokens::KeywordOr) {
+                m_Advance();
+                out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
+                                                    m_ParseComp());
+            }
+        }
+        return out;
+    }
     ptr_t m_ParseFactor() {
         TokenHandler tok = m_Get();
         if (tok.token == Tokens::Lparen) {
             m_ParensCount++;
             m_Advance();
             if (not_eof()) {
-                ptr_t out = m_ParseExpr();
+                ptr_t out = m_ParseComp();
                 if (m_Get().token != Tokens::Rparen) {
                     m_Err();
                 }
@@ -342,7 +342,7 @@ class Parser {
             if (not_eof() && m_Pos > 0) {
                 // we don't want syntaxes such as +5 to be valid
                 m_Advance();
-                return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseExpr(),
+                return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseComp(),
                                                       nullptr);
             } else {
                 m_Advance();
@@ -356,11 +356,11 @@ class Parser {
                     m_Get().token == Tokens::Digit ||
                     m_Get().token == Tokens::Boolean) {
                     // m_Advance();
-                    return std::make_shared<NegativeExpr>(m_ParseExpr());
+                    return std::make_shared<NegativeExpr>(m_ParseComp());
                     // much easier to handle expressions like `5-(-(-(-5)))`
                 } else {
                     return std::make_shared<BinaryOpExpr>(
-                        Op::Minus, m_ParseExpr(), nullptr);
+                        Op::Minus, m_ParseComp(), nullptr);
                 }
             } else {
                 m_Err();
@@ -382,7 +382,7 @@ class Parser {
             m_ParensCount--;
             if (m_ParensCount == 0) {
                 m_Advance();
-                return m_ParseExpr();
+                return m_ParseComp();
             } else {
                 m_Err(
                     fmt::format("expected a closing paren ')' or expression "
@@ -394,7 +394,7 @@ class Parser {
             return std::make_shared<Boolean>(tok.value);
         } else if (tok.token == Tokens::Semicolon) {
             m_Advance(2);
-            return m_ParseExpr();
+            return m_ParseComp();
         } else {
             m_Err();
         }
@@ -418,10 +418,10 @@ class Parser {
         else
             m_ThrowErr("ParseError", "invalid input");
     }
-    ptr_t parse() { return m_ParseExpr(); }
+    ptr_t parse() { return m_ParseComp(); }
     std::vector<ptr_t> parsevec() {
         std::vector<ptr_t> exprs;
-        while (not_eof()) exprs.push_back(m_ParseExpr());
+        while (not_eof()) exprs.push_back(m_ParseComp());
         return exprs;
     };
     ami::exceptions::ExceptionInterface get_ei() const { return this->ei; }

@@ -273,7 +273,9 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return (Boolean(lhs_get_number->val == rhs_get_bool->val));
         } else {
-            m_Err("logical '==' is only valid for numbers and booleans");
+            m_Err(
+                "comparaison operator '==' is only valid for numbers and "
+                "booleans");
         }
     }
     val_t m_VisitGreaterThan(Comparaison* lexpr) {
@@ -296,7 +298,9 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return (Boolean(lhs_get_number->val > rhs_get_bool->val));
         } else {
-            m_Err("logical '>' is only valid for numbers and booleans");
+            m_Err(
+                "comparaison operator '>' is only valid for numbers and "
+                "booleans");
         }
     }
     val_t m_VisitLess(Comparaison* lexpr) {
@@ -319,7 +323,9 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return (Boolean(lhs_get_number->val < rhs_get_bool->val));
         } else {
-            m_Err("logical '<' is only valid for numbers and booleans");
+            m_Err(
+                "comparaison operator '<' is only valid for numbers and "
+                "booleans");
         }
     }
     val_t m_VisitLessOrEqual(Comparaison* comp) {
