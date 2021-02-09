@@ -15,6 +15,7 @@ true and true
 false or true
 false and true
 true or false
+not true
 0 or 1
 1 or 0
 1 and 1

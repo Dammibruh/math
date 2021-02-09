@@ -311,6 +311,8 @@ class Parser {
                 m_Advance();
                 out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
                                                     m_ParseFactor());
+            } else if (m_Get().token == Tokens::KeywordNot) {
+                out = std::make_shared<NotExpr>(out);
             }
         }
         return out;
@@ -401,7 +403,6 @@ class Parser {
                     m_Advance();
                     if (!not_eof())
                         m_Err("expected an expression after 'if' statement");
-                    fmt::print("get: {}\n", m_Get().value);
                     ptr_t stmt1 = m_ParseComp();
                     ptr_t stmt2 = nullptr;
                     if (m_Get().token == Tokens::KeywordElse) {
@@ -418,6 +419,16 @@ class Parser {
                 m_Err(
                     fmt::format("expected a '(' after keyword 'if' found '{}'",
                                 m_Get().value));
+            }
+        } else if (tok.token == Tokens::KeywordNull) {
+            m_Advance();
+            return std::make_shared<NullExpr>();  // literally just  a null
+        } else if (tok.token == Tokens::KeywordNot) {
+            if (not_eof()) {
+                m_Advance();
+                return std::make_shared<NotExpr>(m_ParseComp());
+            } else {
+                m_Err();
             }
         } else {
             m_Err();

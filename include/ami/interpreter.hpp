@@ -18,13 +18,13 @@
 #include "parser.hpp"
 
 namespace ami {
-using val_t = std::variant<Number, Boolean, std::string>;
+using val_t = std::variant<Number, Boolean, NullExpr, std::string>;
 namespace scope {
 static std::unordered_map<std::string, val_t> userdefined;
 static std::unordered_map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
-    using u_ptr = std::shared_ptr<Expr>;
+    using ptr_t = std::shared_ptr<Expr>;
     std::unordered_map<std::string, val_t> arguments_scope;
     std::size_t call_count = 0;
     std::size_t max_call_count = 1'000;
@@ -343,28 +343,43 @@ class Interpreter {
         auto _cond = visit(iexpr->cond);
         Boolean* get_bool = std::get_if<Boolean>(&_cond);
         Number* get_num = std::get_if<Number>(&_cond);
+        NullExpr* get_null = std::get_if<NullExpr>(&_cond);
         std::string* get_str = std::get_if<std::string>(&_cond);
         bool is_bool = get_bool != nullptr;
         bool is_num = get_num != nullptr;
         bool is_str = get_str != nullptr;
+        bool is_null = get_null != nullptr;
         bool is_true = is_bool
                            ? get_bool->val
                            : (is_num ? get_num->val
                                      : (is_str ? !get_str->empty() : false));
-        if (is_true) {
+        if (is_true && !(is_null)) {
             return visit(iexpr->body);
         } else if (iexpr->elsestmt != nullptr) {
             return visit(iexpr->elsestmt);
         } else {
-            return Boolean(false);
+            return NullExpr{};
         }
     }
     val_t m_VisitNumber(Number* num) { return Number(num->val); }
+    val_t m_VisitNull() { return NullExpr{}; }
     val_t m_VisitBool(Boolean* _b) { return *_b; }
+    val_t m_VisitNot(NotExpr* _b) {
+        auto value = visit(_b->value);
+        if (auto _number = std::get_if<Number>(&value)) {
+            return Boolean(!_number->val);
+        } else if (auto _bool = std::get_if<Boolean>(&value)) {
+            return Boolean(!_bool->val);
+        } else if (auto _null = std::get_if<NullExpr>(&value)) {
+            return Boolean(true);
+        } else {
+            m_Err("operator 'not' is only valid for numbers and booleans");
+        }
+    }
 
    public:
     Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
-    val_t visit(u_ptr expr) {
+    val_t visit(ptr_t expr) {
         m_Pos++;
         switch (expr->type()) {
             default: {
@@ -443,9 +458,15 @@ class Interpreter {
             case AstType::IfExpr: {
                 return m_VisitIfExpr(static_cast<IfExpr*>(expr.get()));
             }
+            case AstType::NotExpr: {
+                return m_VisitNot(static_cast<NotExpr*>(expr.get()));
+            }
+            case AstType::NullExpr: {
+                return m_VisitNull();
+            }
         }
     }
-    val_t visitvec(const std::vector<u_ptr>& exprs) {
+    val_t visitvec(const std::vector<ptr_t>& exprs) {
         val_t out = visit(exprs.at(0));
         for (auto& elm : exprs) out = visit(elm);
         return out;

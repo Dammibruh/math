@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <map>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -33,9 +34,11 @@ enum class AstType {
     Identifier,
     FunctionCall,
     Function,
+    NullExpr,
     UserDefinedIdentifier,
     NegativeExpr,
     UserDefinedFunction,
+    NotExpr,
     IfExpr,
     Boolean,
     Comparaison,
@@ -51,16 +54,14 @@ static std::map<Op, char*> ops_str{
     {Op::Equals, "=="}};
 struct Expr {
     virtual std::string str() = 0;
-    virtual AstType type() const { return AstType::Expr; }
+    virtual AstType type() const = 0;
     virtual ~Expr() = default;
 };
 struct Number : public Expr {
     long double val;
     explicit Number(long double x) : val(x) {}
     std::string str() override {
-        std::string out;
-        out += ("<NUMBER:" + std::to_string(val) + '>');
-        return out;
+        return fmt::format("<Number value=<{}>>", val);
     }
     AstType type() const override { return AstType::Number; }
     std::string to_str() { return std::to_string(val); }
@@ -116,9 +117,23 @@ struct NegativeExpr : public Expr {
     std::shared_ptr<Expr> value;
     explicit NegativeExpr(const std::shared_ptr<Expr>& val) : value(val) {}
     std::string str() override {
-        return "<NegativeExpr value={" + value->str() + "}>";
+        return fmt::format("<NegativeExpr value=<{}>>", value->str());
     }
     AstType type() const override { return AstType::NegativeExpr; }
+};
+struct NotExpr : public Expr {
+    std::shared_ptr<Expr> value;
+    explicit NotExpr(const std::shared_ptr<Expr>& val) : value(val) {}
+    std::string str() override {
+        return fmt::format("<NotExpr value=<{}>>", value->str());
+    }
+    AstType type() const override { return AstType::NotExpr; }
+};
+struct NullExpr : public Expr {
+    std::string value = "null";
+    NullExpr() {}
+    std::string str() override { return "<NullExpr>"; }
+    AstType type() const override { return AstType::NullExpr; }
 };
 struct BinaryOpExpr : public Expr {
     std::shared_ptr<Expr> lhs, rhs;
@@ -127,12 +142,10 @@ struct BinaryOpExpr : public Expr {
                  const std::shared_ptr<Expr>& _rhs)
         : lhs(_lhs), rhs(_rhs), op(c) {}
     std::string str() override {
-        std::stringstream ss;
         std::string lhs_str = lhs != nullptr ? lhs->str() : "null";
         std::string rhs_str = rhs != nullptr ? rhs->str() : "null";
-        ss << "<BinaryOpExpr Lhs={" << lhs_str << "}, OP={" << ops_str[op]
-           << "}, Rhs={" << rhs_str << "}/>";
-        return ss.str();
+        return fmt::format("<BinaryOpExpr left=<{}>, right=<{}>>", lhs_str,
+                           rhs_str);
     }
     AstType type() const override { return AstType::BinaryOp; }
 };
@@ -140,9 +153,7 @@ struct Identifier : public Expr {
     std::string name;
     explicit Identifier(const std::string& name) : name(name) {}
     std::string str() override {
-        std::stringstream ss;
-        ss << "<Identifier name={" << name << "}>";
-        return ss.str();
+        return fmt::format("<Identifier name=<{}>>", name);
     }
     AstType type() const override { return AstType::Identifier; }
 };
@@ -153,10 +164,8 @@ struct UserDefinedIdentifier : public Expr {
                           const std::shared_ptr<Expr>& val)
         : name(name), value(val) {}
     std::string str() override {
-        std::stringstream ss;
-        ss << "<UserDefinedIdentifier name={" << name << "}, value={"
-           << value->str() << "}>";
-        return ss.str();
+        return fmt::format("<UserDefinedIdentifier name=<{}>, value=<{}>>",
+                           name, value->str());
     }
     AstType type() const override { return AstType::UserDefinedIdentifier; }
 };
@@ -215,4 +224,7 @@ struct IfExpr : public Expr {
         return str;
     }
 };
+// later cuz me is epic
+struct SetObject : public Expr {};
+struct IntervalExpr : public Expr {};
 }  // namespace ami

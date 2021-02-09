@@ -7,7 +7,7 @@
 #include "parser.hpp"
 
 namespace ami {
-std::variant<Number, Boolean, std::string> eval(
+std::variant<Number, Boolean, NullExpr, std::string> eval(
     const std::string& expression, const std::string& file = "source") {
     ami::Lexer lexer(expression);
     ami::Parser parser(lexer.lex(), expression, file);

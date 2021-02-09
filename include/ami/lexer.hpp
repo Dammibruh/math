@@ -24,17 +24,23 @@ enum class Tokens {
     Assign,
     Edelim,  // 1e10
     Semicolon,
-    IntervalBegin,
-    IntervalEnd,
+    Lcbracket,  // for sets
+    Rcbracket,
     KeywordIf,
     KeywordElse,
     KeywordAnd,
+    KeywordNot,
+    KeywordNull,
+    KeywordIn,
     KeywordOr,
     FunctionDef,  // f(x) -> expr
     Equals,
     GreaterThan,
+    Lbracket,
+    Rbracket,
     GreaterThanOrEqual,
     LessThan,
+    Ellipsis,
     LessThanOrEqual,
     Boolean
 };
@@ -76,6 +82,12 @@ class Lexer {
             return Tokens::KeywordAnd;
         } else if (ident == "or") {
             return Tokens::KeywordOr;
+        } else if (ident == "not") {
+            return Tokens::KeywordNot;
+        } else if (ident == "in") {
+            return Tokens::KeywordIn;
+        } else if (ident == "null") {
+            return Tokens::KeywordNull;
         } else {
             return Tokens::Identifier;
         }
@@ -194,13 +206,19 @@ class Lexer {
                     }
                     break;
                 case '[':
-                    m_AddTok(Tokens::IntervalBegin, "[");
+                    m_AddTok(Tokens::Lcbracket, "[");
                     break;
                 case ']':
-                    m_AddTok(Tokens::IntervalEnd, "[");
+                    m_AddTok(Tokens::Rcbracket, "]");
                     break;
                 case ';':
                     m_AddTok(Tokens::Semicolon, ";");
+                    break;
+                case '{':
+                    m_AddTok(Tokens::Lbracket, "{");
+                    break;
+                case '}':
+                    m_AddTok(Tokens::Rbracket, "}");
                     break;
             }
             m_Advance();
@@ -235,10 +253,13 @@ static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::LessThanOrEqual, "LESSTHANOREQUAL"},
     {Tokens::Equals, "EQUALS"},
     {Tokens::KeywordOr, "KEYWORDOR"},
-    {Tokens::KeywordAnd, "KEYWORDABD"},
+    {Tokens::KeywordAnd, "KEYWORDAND"},
+    {Tokens::KeywordNull, "KEYWORDNULL"},
+    {Tokens::KeywordNot, "KEYWORDNOT"},
     {Tokens::FunctionDef, "FUNCTIONDEF"},
-    {Tokens::IntervalBegin, "INTERVALBEGIN"},
-    {Tokens::IntervalEnd, "INTERVALEND"},
+    {Tokens::Lcbracket,
+     "LEFTCUBEBRACKET"},  // lmao idk from where did I get this name
+    {Tokens::Rcbracket, "RIGHTCUBEBRACKET"},
 };
 
 }  // namespace ami
