@@ -92,7 +92,7 @@ class Interpreter {
         if (is_a_function_arg) {
             return arguments_scope.at(ident->name);
         } else if (is_a_builtin_ident) {
-            return Number(-(ami::builtins::constants.at(ident->name)));
+            return Number(ami::builtins::constants.at(ident->name));
         } else if ((!scope::userdefined.empty()) && is_a_defined_ident) {
             return scope::userdefined.at(ident->name);
         } else {
@@ -130,7 +130,7 @@ class Interpreter {
         // helper variables
         std::vector<std::shared_ptr<ami::Expr>> args = fc->arguments;
         if (is_builtin) {
-            std::vector<Number> parsed_args;
+            std::vector<val_t> parsed_args;
             if (args.size() != get_builtin->second.args_count) {
                 m_Err(fmt::format(
                     "mismatched arguments for function call '{}' "
@@ -138,11 +138,10 @@ class Interpreter {
                     fc->name, args.size(), get_builtin->second.args_count));
             }
             // evaluate each passed argument
-            std::for_each(
-                args.begin(), args.end(),
-                [&parsed_args, this](const auto& arg) {
-                    parsed_args.push_back(std::get<Number>(visit(arg)));
-                });
+            std::for_each(args.begin(), args.end(),
+                          [&parsed_args, this](const auto& arg) {
+                              parsed_args.push_back(visit(arg));
+                          });
             return Number(get_builtin->second.callback(parsed_args));
         } else if (is_userdefined) {
             if (args.size() != get_userdefined->second.arguments.size()) {
@@ -219,13 +218,13 @@ class Interpreter {
         bool rhs_is_number = rhs_get_number != nullptr;
         bool rhs_is_bool = rhs_get_bool != nullptr;
         if (lhs_is_number && rhs_is_number) {
-            return (Boolean(lhs_get_number->val && rhs_get_number->val));
+            return Boolean(lhs_get_number->val && rhs_get_number->val);
         } else if (lhs_is_bool && rhs_is_bool) {
-            return (Boolean(lhs_get_bool->val && rhs_get_bool->val));
+            return Boolean(lhs_get_bool->val && rhs_get_bool->val);
         } else if (lhs_is_number && rhs_is_bool) {
-            return (Boolean(lhs_get_number->val && rhs_get_bool->val));
+            return Boolean(lhs_get_number->val && rhs_get_bool->val);
         } else if (lhs_is_bool && rhs_is_number) {
-            return (Boolean(lhs_get_bool->val && rhs_get_number->val));
+            return Boolean(lhs_get_bool->val && rhs_get_number->val);
         } else {
             m_Err("logical 'and' is only valid for numbers and booleans");
         }
@@ -242,13 +241,13 @@ class Interpreter {
         bool rhs_is_number = rhs_get_number != nullptr;
         bool rhs_is_bool = rhs_get_bool != nullptr;
         if (lhs_is_number && rhs_is_number) {
-            return (Boolean(lhs_get_number->val || rhs_get_number->val));
+            return Boolean(lhs_get_number->val || rhs_get_number->val);
         } else if (lhs_is_bool && rhs_is_bool) {
-            return (Boolean(lhs_get_bool->val || rhs_get_bool->val));
+            return Boolean(lhs_get_bool->val || rhs_get_bool->val);
         } else if (lhs_is_number && rhs_is_bool) {
-            return (Boolean(lhs_get_number->val || rhs_get_bool->val));
+            return Boolean(lhs_get_number->val || rhs_get_bool->val);
         } else if (lhs_is_bool && rhs_is_number) {
-            return (Boolean(lhs_get_bool->val || rhs_get_number->val));
+            return Boolean(lhs_get_bool->val || rhs_get_number->val);
         } else {
             m_Err("logical 'or' is only valid for numbers and booleans");
         }
@@ -271,7 +270,7 @@ class Interpreter {
         } else if (lhs_is_number && rhs_is_bool) {
             return (Boolean(lhs_get_number->val == rhs_get_bool->val));
         } else if (lhs_is_bool && rhs_is_number) {
-            return (Boolean(lhs_get_number->val == rhs_get_bool->val));
+            return (Boolean(lhs_get_bool->val == rhs_get_number->val));
         } else {
             m_Err(
                 "comparaison operator '==' is only valid for numbers and "
@@ -296,7 +295,7 @@ class Interpreter {
         } else if (lhs_is_number && rhs_is_bool) {
             return (Boolean(lhs_get_number->val > rhs_get_bool->val));
         } else if (lhs_is_bool && rhs_is_number) {
-            return (Boolean(lhs_get_number->val > rhs_get_bool->val));
+            return (Boolean(lhs_get_bool->val > rhs_get_number->val));
         } else {
             m_Err(
                 "comparaison operator '>' is only valid for numbers and "
@@ -321,7 +320,7 @@ class Interpreter {
         } else if (lhs_is_number && rhs_is_bool) {
             return (Boolean(lhs_get_number->val < rhs_get_bool->val));
         } else if (lhs_is_bool && rhs_is_number) {
-            return (Boolean(lhs_get_number->val < rhs_get_bool->val));
+            return (Boolean(lhs_get_bool->val < rhs_get_number->val));
         } else {
             m_Err(
                 "comparaison operator '<' is only valid for numbers and "
@@ -339,6 +338,26 @@ class Interpreter {
         auto r = m_VisitEquals(comp);
         return Boolean(std::get_if<Boolean>(&l)->val ||
                        std::get_if<Boolean>(&r)->val);
+    }
+    val_t m_VisitIfExpr(IfExpr* iexpr) {
+        auto _cond = visit(iexpr->cond);
+        Boolean* get_bool = std::get_if<Boolean>(&_cond);
+        Number* get_num = std::get_if<Number>(&_cond);
+        std::string* get_str = std::get_if<std::string>(&_cond);
+        bool is_bool = get_bool != nullptr;
+        bool is_num = get_num != nullptr;
+        bool is_str = get_str != nullptr;
+        bool is_true = is_bool
+                           ? get_bool->val
+                           : (is_num ? get_num->val
+                                     : (is_str ? !get_str->empty() : false));
+        if (is_true) {
+            return visit(iexpr->body);
+        } else if (iexpr->elsestmt != nullptr) {
+            return visit(iexpr->elsestmt);
+        } else {
+            return Boolean(false);
+        }
     }
     val_t m_VisitNumber(Number* num) { return Number(num->val); }
     val_t m_VisitBool(Boolean* _b) { return *_b; }
@@ -420,6 +439,9 @@ class Interpreter {
             }
             case AstType::Boolean: {
                 return m_VisitBool(static_cast<Boolean*>(expr.get()));
+            }
+            case AstType::IfExpr: {
+                return m_VisitIfExpr(static_cast<IfExpr*>(expr.get()));
             }
         }
     }

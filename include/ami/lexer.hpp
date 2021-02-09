@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -23,10 +24,13 @@ enum class Tokens {
     Assign,
     Edelim,  // 1e10
     Semicolon,
+    IntervalBegin,
+    IntervalEnd,
     KeywordIf,
     KeywordElse,
     KeywordAnd,
     KeywordOr,
+    FunctionDef,  // f(x) -> expr
     Equals,
     GreaterThan,
     GreaterThanOrEqual,
@@ -46,6 +50,7 @@ class Lexer {
     std::string m_Src;
     bool m_IsDigit(char c) { return (c >= '0' && c <= '9'); }
     bool not_eof() { return m_Pos < m_Src.size(); }
+    bool m_AtEnd() { return (m_Pos == (m_Src.size() - 1)); }
     bool m_IsAlpha(char c) {
         return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
     }
@@ -60,18 +65,20 @@ class Lexer {
         return m_Src.at((m_Pos) == 0 ? 0 : m_Pos - x);
     }
     Tokens m_GetKeyword(const std::string& ident) {
-        // if bool expr otherexpr: if (a < b) a else b
-        if (ident == "if")
+        // if (condition) stmt1 else stmt2
+        if (ident == "if") {
             return Tokens::KeywordIf;
-        else if (ident == "else")
+        } else if (ident == "else") {
             return Tokens::KeywordElse;
-        else if (ident == "true" || ident == "false")
+        } else if (ident == "true" || ident == "false") {
             return Tokens::Boolean;
-        else if (ident == "and")
+        } else if (ident == "and") {
             return Tokens::KeywordAnd;
-        else if (ident == "or")
+        } else if (ident == "or") {
             return Tokens::KeywordOr;
-        return Tokens::Identifier;
+        } else {
+            return Tokens::Identifier;
+        }
     }
     void m_Advance(std::size_t x = 1) { m_Pos += x; }
     void m_AddTok(Tokens tok, const std::string& val) {
@@ -80,7 +87,7 @@ class Lexer {
     }
     std::string m_GetIdent() {
         std::string out{};
-        while (not_eof() && m_IsAlpha(m_Get())) {
+        while (not_eof() && (m_IsAlpha(m_Get()) || m_IsDigit(m_Get()))) {
             out += m_Get();
             m_Advance();
         }
@@ -104,7 +111,6 @@ class Lexer {
             switch (m_Src.at(m_Pos)) {
                 default:
                     if (m_IsDigit(m_Get())) {
-                        // if the current pos is a digit get the full digit
                         m_AddTok(Tokens::Digit, m_GetDigit());
                     } else if (m_IsAlpha(m_Get())) {
                         std::string ident = m_GetIdent();
@@ -120,7 +126,12 @@ class Lexer {
                     m_AddTok(Tokens::Plus, "+");
                     break;
                 case '-':
-                    m_AddTok(Tokens::Minus, "-");
+                    if (m_Peek() == '>') {
+                        m_Advance();
+                        m_AddTok(Tokens::FunctionDef, "->");
+                    } else {
+                        m_AddTok(Tokens::Minus, "-");
+                    }
                     break;
                 case '/':
                     m_AddTok(Tokens::Div, "/");
@@ -146,30 +157,28 @@ class Lexer {
                     m_AddTok(Tokens::Dot, ".");
                     break;
                 case '\'':
-                    // delim for number to improve readability eg :
+                    // delim for number to improve readability like :
                     // 1'000'000'000
                     m_AddTok(Tokens::Delim, "'");
                     break;
                 case 'e':
                     if (m_IsAlpha(m_Peek())) {
-                        m_AddTok(Tokens::Identifier, m_GetIdent());
+                        std::string ident = m_GetIdent();
+                        m_AddTok(m_GetKeyword(ident), ident);
                     } else {
                         m_AddTok(Tokens::Edelim, "e");
                     }
                     break;
                 case '=':
-                    switch (m_Peek()) {
-                        default:
-                            m_AddTok(Tokens::Assign, "=");
-                            break;
-                        case '=':
-                            m_Advance();
-                            m_AddTok(Tokens::Equals, "==");
-                            break;
+                    if (m_Peek() == '=' && !m_AtEnd()) {
+                        m_Advance();
+                        m_AddTok(Tokens::Equals, "==");
+                    } else {
+                        m_AddTok(Tokens::Assign, "=");
                     }
                     break;
                 case '<':
-                    if (m_Peek() == '=') {
+                    if (m_Peek() == '=' && not_eof()) {
                         m_Advance();
                         m_AddTok(Tokens::LessThanOrEqual, "<=");
                     } else {
@@ -177,12 +186,18 @@ class Lexer {
                     }
                     break;
                 case '>':
-                    if (m_Peek() == '=') {
+                    if (m_Peek() == '=' && not_eof()) {
                         m_Advance();
                         m_AddTok(Tokens::GreaterThanOrEqual, ">=");
                     } else {
                         m_AddTok(Tokens::GreaterThan, ">");
                     }
+                    break;
+                case '[':
+                    m_AddTok(Tokens::IntervalBegin, "[");
+                    break;
+                case ']':
+                    m_AddTok(Tokens::IntervalEnd, "[");
                     break;
                 case ';':
                     m_AddTok(Tokens::Semicolon, ";");
@@ -220,6 +235,10 @@ static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::LessThanOrEqual, "LESSTHANOREQUAL"},
     {Tokens::Equals, "EQUALS"},
     {Tokens::KeywordOr, "KEYWORDOR"},
-    {Tokens::KeywordAnd, "KEYWORDIF"}};
+    {Tokens::KeywordAnd, "KEYWORDABD"},
+    {Tokens::FunctionDef, "FUNCTIONDEF"},
+    {Tokens::IntervalBegin, "INTERVALBEGIN"},
+    {Tokens::IntervalEnd, "INTERVALEND"},
+};
 
 }  // namespace ami

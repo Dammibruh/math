@@ -23,6 +23,8 @@ class Parser {
     std::size_t m_Pos = 0;
     std::size_t m_ParensCount = 0;
     ami::exceptions::ExceptionInterface ei;
+    bool is_in_func_args{};
+    // to disable syntax checking for nunbers in funtion's args
 
     TokenHandler m_Get() {
         return m_Src.at(m_Pos >= m_Src.size() ? m_Src.size() - 1 : m_Pos);
@@ -44,12 +46,14 @@ class Parser {
     bool m_IsValidAfterNumber(TokenHandler tok) {
         return m_IsAnOp(tok.token) || (tok.token == Tokens::Lparen) ||
                (tok.token == Tokens::Rparen) || (tok.token == Tokens::Digit) ||
-               (tok.token == Tokens::Delim) || (tok.token == Tokens::Edelim);
+               (tok.token == Tokens::Delim) || (tok.token == Tokens::Edelim) ||
+               (tok.token == Tokens::KeywordElse);
     }
-    ptr_t m_ParseIfStmtBody() {}
-    ptr_t m_ParseIfStmtStmt() {}
+    //    ptr_t m_ParseIfExprCondition() {
+    //   }
     std::vector<ptr_t> m_ParseFunctionArgs() {
         std::vector<ptr_t> args{};
+        is_in_func_args = true;
         if (m_Get().token != Tokens::Rparen) {
             do {
                 if (m_Get().token == Tokens::Comma) {
@@ -71,11 +75,13 @@ class Parser {
         if (m_Get().token != Tokens::Rparen) {
             m_ThrowErr("SyntaxError", "expected ')' after arguments list");
         }
+        is_in_func_args = false;
         m_Advance();
         return args;
     }
     std::vector<ptr_t> m_ParseFunctionDefArgs() {
         std::vector<ptr_t> args{};
+        is_in_func_args = true;
         if (m_Get().token != Tokens::Rparen) {
             do {
                 if (m_Get().token == Tokens::Comma) {
@@ -104,6 +110,7 @@ class Parser {
         if (m_Get().token != Tokens::Rparen) {
             m_ThrowErr("SyntaxError", "expected ')' after arguments list");
         }
+        is_in_func_args = false;
         m_Advance();
         return args;
     }
@@ -125,21 +132,22 @@ class Parser {
         auto get_rparen = std::find_if(src.begin(), src.end(), [](auto t) {
             return t.token == Tokens::Rparen;
         });
-        auto get_assign = std::find_if(src.begin(), src.end(), [](auto t) {
-            return t.token == Tokens::Assign;
+        auto get_fdef = std::find_if(src.begin(), src.end(), [](auto t) {
+            return t.token == Tokens::FunctionDef;
         });
-        bool contains_assign = get_assign != src.end();
-        bool invalid_assign = get_assign < get_rparen;
+        bool contains_fdef = get_fdef != src.end();
+        bool invalid_fdef = get_fdef < get_rparen;
+        // to prevent somth like f(->) from being a valid syntax
         std::vector<ptr_t> args;
-        if (contains_assign && !invalid_assign) {
+        if (contains_fdef && !invalid_fdef) {
             args = m_ParseFunctionDefArgs();
-        } else if (!contains_assign) {
+        } else if (!contains_fdef) {
             args = m_ParseFunctionArgs();
         } else {
-            m_Err();
+            // m_Err();
         }
         m_Advance();
-        if (contains_assign) {
+        if (contains_fdef) {
             ptr_t body = m_ParseComp();
             m_Advance(-1);
             // so the parser won't ignore operations after the
@@ -218,7 +226,6 @@ class Parser {
     bool m_IsLogical(Tokens tok) {
         return (tok == Tokens::KeywordAnd) || (tok == Tokens::KeywordOr);
     }
-
     ptr_t m_ParseComp() {
         ptr_t out = m_ParseExpr();
         while (not_eof() && (m_IsCompareToken(m_Get().token))) {
@@ -253,11 +260,11 @@ class Parser {
             if (m_Get().token == Tokens::Plus) {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Plus, out,
-                                                     m_ParseComp());
+                                                     m_ParseTerm());
             } else if (m_Get().token == Tokens::Minus) {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Minus, out,
-                                                     m_ParseComp());
+                                                     m_ParseTerm());
             }
         }
         return out;
@@ -268,12 +275,11 @@ class Parser {
                              m_Get().token == Tokens::Div)) {
             if (m_Get().token == Tokens::Mult) {
                 m_Advance();
-                out = std::make_shared<BinaryOpExpr>(Op::Mult, out,
-                                                     m_ParseComp());
+                out =
+                    std::make_shared<BinaryOpExpr>(Op::Mult, out, m_ParseSu());
             } else if (m_Get().token == Tokens::Div) {
                 m_Advance();
-                out =
-                    std::make_shared<BinaryOpExpr>(Op::Div, out, m_ParseComp());
+                out = std::make_shared<BinaryOpExpr>(Op::Div, out, m_ParseSu());
             }
         }
         return out;
@@ -284,35 +290,27 @@ class Parser {
                (m_Get().token == Tokens::Pow || m_Get().token == Tokens::Mod)) {
             if (m_Get().token == Tokens::Pow) {
                 m_Advance();
-                out =
-                    std::make_shared<BinaryOpExpr>(Op::Pow, out, m_ParseComp());
+                out = std::make_shared<BinaryOpExpr>(Op::Pow, out,
+                                                     m_ParseLogical());
             } else if (m_Get().token == Tokens::Mod) {
                 m_Advance();
-                out =
-                    std::make_shared<BinaryOpExpr>(Op::Mod, out, m_ParseComp());
+                out = std::make_shared<BinaryOpExpr>(Op::Mod, out,
+                                                     m_ParseLogical());
             }
         }
         return out;
     }
     ptr_t m_ParseLogical() {
         ptr_t out = m_ParseFactor();
-        while (not_eof() && (m_Get().token == Tokens::KeywordIf ||
-                             m_Get().token == Tokens::KeywordElse ||
-                             m_IsLogical(m_Get().token))) {
-            if (m_Get().token == Tokens::KeywordIf) {
-                m_Advance();
-                auto stmt1 = m_ParseComp();
-                std::shared_ptr<Expr> stmt2 = nullptr;
-                if (m_Get().token == Tokens::KeywordElse) stmt2 = m_ParseComp();
-                out = std::make_shared<IfExpr>(out, stmt1, stmt2);
-            } else if (m_Get().token == Tokens::KeywordAnd) {
+        while (not_eof() && (m_IsLogical(m_Get().token))) {
+            if (m_Get().token == Tokens::KeywordAnd) {
                 m_Advance();
                 out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
-                                                    m_ParseComp());
+                                                    m_ParseFactor());
             } else if (m_Get().token == Tokens::KeywordOr) {
                 m_Advance();
                 out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
-                                                    m_ParseComp());
+                                                    m_ParseFactor());
             }
         }
         return out;
@@ -332,8 +330,14 @@ class Parser {
             }
             m_Err();
         } else if (tok.token == Tokens::Digit) {
-            if (not_eof()) {
-                return std::make_shared<Number>(std::stod(m_GetDigit()));
+            if (not_eof() && !is_in_func_args) {
+                if (m_IsValidAfterNumber(m_Peek()) ||
+                    m_IsCompareToken(m_Peek().token) ||
+                    m_IsLogical(m_Peek().token)) {
+                    return std::make_shared<Number>(std::stold(m_GetDigit()));
+                } else {
+                    m_Err();
+                }
             } else {
                 m_Advance();
                 return std::make_shared<Number>(std::stod(tok.value));
@@ -378,28 +382,48 @@ class Parser {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
             }
-        } else if (tok.token == Tokens::Rparen) {
-            m_ParensCount--;
-            if (m_ParensCount == 0) {
-                m_Advance();
-                return m_ParseComp();
-            } else {
-                m_Err(
-                    fmt::format("expected a closing paren ')' or expression "
-                                "for '(' found '{}' instead",
-                                tok.value));
-            }
         } else if (tok.token == Tokens::Boolean) {
             m_Advance();
             return std::make_shared<Boolean>(tok.value);
         } else if (tok.token == Tokens::Semicolon) {
             m_Advance(2);
             return m_ParseComp();
+        } else if (tok.token == Tokens::KeywordIf) {
+            m_Advance();
+            if (m_Get().token == Tokens::Lparen) {
+                ptr_t cond = m_ParseComp();
+                m_Advance(-1);
+                if (m_Get().token != Tokens::Rparen) {
+                    m_Err(fmt::format(
+                        "expected a closing ')' for 'if' found '{}'",
+                        m_Get().value));
+                } else {
+                    m_Advance();
+                    if (!not_eof())
+                        m_Err("expected an expression after 'if' statement");
+                    fmt::print("get: {}\n", m_Get().value);
+                    ptr_t stmt1 = m_ParseComp();
+                    ptr_t stmt2 = nullptr;
+                    if (m_Get().token == Tokens::KeywordElse) {
+                        if (!not_eof())
+                            m_Err(
+                                "expected an expression after 'else' "
+                                "statement");
+                        m_Advance();
+                        stmt2 = m_ParseComp();
+                    }
+                    return std::make_shared<IfExpr>(cond, stmt1, stmt2);
+                }
+            } else {
+                m_Err(
+                    fmt::format("expected a '(' after keyword 'if' found '{}'",
+                                m_Get().value));
+            }
         } else {
             m_Err();
         }
     }
-    void m_Err() { m_Err(fmt::format("Unexpected token '{}'", m_Get().value)); }
+    void m_Err() { m_Err("invalid syntax"); }
     void m_Err(const std::string& msg) { m_ThrowErr("SyntaxError", msg); }
     void m_ThrowErr(const std::string& err, const std::string& msg) {
         this->ei.name = err;
@@ -423,7 +447,7 @@ class Parser {
         std::vector<ptr_t> exprs;
         while (not_eof()) exprs.push_back(m_ParseComp());
         return exprs;
-    };
+    }
     ami::exceptions::ExceptionInterface get_ei() const { return this->ei; }
 };
 

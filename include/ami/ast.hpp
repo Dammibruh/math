@@ -55,8 +55,8 @@ struct Expr {
     virtual ~Expr() = default;
 };
 struct Number : public Expr {
-    double val;
-    explicit Number(double x) : val(x) {}
+    long double val;
+    explicit Number(long double x) : val(x) {}
     std::string str() override {
         std::string out;
         out += ("<NUMBER:" + std::to_string(val) + '>');
@@ -93,10 +93,10 @@ struct Comparaison : public Expr {
         : op(o), lhs(l), rhs(r) {}
     AstType type() const override { return AstType::Comparaison; }
     std::string str() override {
-        return fmt::format("<Comparaison left={left} op={op}, right={right}>",
-                           fmt::arg("left", lhs->str()),
-                           fmt::arg("op", ops_str.at(op)),
-                           fmt::arg("right", rhs->str()));
+        return fmt::format(
+            "<Comparaison left=<{left}> op=<{op}>, right=<{right}>>",
+            fmt::arg("left", lhs->str()), fmt::arg("op", ops_str.at(op)),
+            fmt::arg("right", rhs->str()));
     }
 };
 struct LogicalExpr : public Expr {
@@ -107,7 +107,7 @@ struct LogicalExpr : public Expr {
         : op(o), lhs(l), rhs(r) {}
     AstType type() const override { return AstType::LogicalExpr; }
     std::string str() override {
-        return fmt::format("<LogicalExpr lhs={{l}}, op={{op}}, rhs={{r}}>",
+        return fmt::format("<LogicalExpr lhs=<{l}>, op=<{op}>, rhs=<{r}>>",
                            fmt::arg("l", lhs->str()), fmt::arg("r", rhs->str()),
                            fmt::arg("op", ops_str.at(op)));
     }
@@ -202,16 +202,16 @@ struct Function : public Expr {
     }
 };
 struct IfExpr : public Expr {
-    std::shared_ptr<Expr> body, stmt1, stmt2;
-    IfExpr(const std::shared_ptr<Expr>& body, const std::shared_ptr<Expr>& st1,
+    std::shared_ptr<Expr> cond, body, elsestmt;
+    IfExpr(const std::shared_ptr<Expr>& cond, const std::shared_ptr<Expr>& st1,
            const std::shared_ptr<Expr>& st2)
-        : body(body), stmt1(st1), stmt2(st2) {}
+        : cond(cond), body(st1), elsestmt(st2) {}
     AstType type() const override { return AstType::IfExpr; }
     std::string str() override {
         std::string str = fmt::format(
-            "<IfExpr body={{body}}, if_true={{stmt1}}, else={{stmt2}}>",
-            fmt::arg("body", body->str()), fmt::arg("stmt1", stmt1->str()),
-            fmt::arg("stmt2", stmt2->str()));
+            "<IfExpr condition=<{cond}>, if_true=<{stmt1}>, else=<{stmt2}>>",
+            fmt::arg("cond", cond->str()), fmt::arg("stmt1", body->str()),
+            fmt::arg("stmt2", elsestmt != nullptr ? elsestmt->str() : "null"));
         return str;
     }
 };
