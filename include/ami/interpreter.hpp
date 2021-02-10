@@ -27,7 +27,7 @@ class Interpreter {
     using ptr_t = std::shared_ptr<Expr>;
     std::unordered_map<std::string, val_t> arguments_scope;
     std::size_t call_count = 0;
-    std::size_t max_call_count = 1'000;
+    std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
     ami::exceptions::ExceptionInterface ei;
     // exceptions
@@ -118,7 +118,8 @@ class Interpreter {
         if (call_count >= max_call_count) {
             std::size_t temp = call_count;
             call_count = 0;
-            m_Err(fmt::format("{} called recursively for {}", fc->name, temp),
+            m_Err(fmt::format("functio '{}' has been called recursively for {}",
+                              fc->name, temp),
                   0);
         }
         decltype(ami::builtins::functions)::iterator get_builtin =
