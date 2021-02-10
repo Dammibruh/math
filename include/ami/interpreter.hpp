@@ -5,11 +5,11 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <tuple>
-#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -20,16 +20,17 @@
 namespace ami {
 using val_t = std::variant<Number, Boolean, NullExpr, std::string>;
 namespace scope {
-static std::unordered_map<std::string, val_t> userdefined;
-static std::unordered_map<std::string, ami::Function> userdefined_functions;
+static std::map<std::string, val_t> userdefined;
+static std::map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using ptr_t = std::shared_ptr<Expr>;
-    std::unordered_map<std::string, val_t> arguments_scope;
-    std::size_t call_count = 0;
+    using scope_t = std::map<std::string, val_t>;
+    using nested_scope_t = std::vector<scope_t>;
     std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
     ami::exceptions::ExceptionInterface ei;
+    nested_scope_t arguments_scope;
     // exceptions
     void m_ThrowErr(const std::string& str, const std::string& msg,
                     std::optional<std::size_t> pos = std::nullopt) {
@@ -83,14 +84,25 @@ class Interpreter {
             m_Err("binary operation '*' is only valid for numbers");
     }
     val_t m_VisitIdent(Identifier* ident) {
-        bool is_a_function_arg =
-            arguments_scope.find(ident->name) != arguments_scope.end();
+        bool is_a_function = !arguments_scope.empty();
+        auto get_arg_ident = [&ident, this]() {
+            for (auto v = this->arguments_scope.rbegin();
+                 v != this->arguments_scope.rend(); ++v) {
+                for (auto e = v->begin(); e != v->end(); ++e) {
+                    if (e->first == ident->name) {
+                        return e;
+                    }
+                }
+            }
+            return this->arguments_scope.back().end();
+        }();
+        bool is_a_function_arg = get_arg_ident != arguments_scope.back().end();
         bool is_a_defined_ident =
             scope::userdefined.find(ident->name) != scope::userdefined.end();
         bool is_a_builtin_ident = ami::builtins::constants.find(ident->name) !=
                                   ami::builtins::constants.end();
         if (is_a_function_arg) {
-            return arguments_scope.at(ident->name);
+            return get_arg_ident->second;
         } else if (is_a_builtin_ident) {
             return Number(ami::builtins::constants.at(ident->name));
         } else if ((!scope::userdefined.empty()) && is_a_defined_ident) {
@@ -113,15 +125,6 @@ class Interpreter {
         }
     }
     val_t m_VisitFunction(FunctionCall* fc) {
-        // recursion check, haha die segmentation fault
-        call_count++;
-        if (call_count >= max_call_count) {
-            std::size_t temp = call_count;
-            call_count = 0;
-            m_Err(fmt::format("functio '{}' has been called recursively for {}",
-                              fc->name, temp),
-                  0);
-        }
         decltype(ami::builtins::functions)::iterator get_builtin =
             ami::builtins::functions.find(fc->name);
         bool is_builtin = get_builtin != ami::builtins::functions.end();
@@ -152,15 +155,26 @@ class Interpreter {
                                 fc->name, args.size(),
                                 get_userdefined->second.arguments.size()));
             }
+            if (std::size_t count = get_userdefined->second.call_count;
+                count >= max_call_count) {
+                get_userdefined->second.call_count = 0;
+                m_Err(fmt::format(
+                          "function '{}' has been called recursively for {}",
+                          fc->name, count),
+                      0);
+            }
             std::vector<std::shared_ptr<Expr>> fc_args =
                 get_userdefined->second.arguments;
+            scope_t tempscope;
             for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
                 Identifier* ident =
                     static_cast<Identifier*>(fc_args.at(i).get());
                 std::string cname = ident->name;
-                arguments_scope.insert_or_assign(cname, visit(args.at(i)));
+                tempscope.insert_or_assign(cname, visit(args.at(i)));
             }
             std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
+            get_userdefined->second.call_count++;
+            arguments_scope.push_back(tempscope);
             // the function's body is evaluated only when it's called
             return visit(fc_body);
 

@@ -8,6 +8,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "lexer.hpp"
@@ -42,6 +43,9 @@ enum class AstType {
     NotExpr,
     IfExpr,
     Boolean,
+    ReturnExpr,
+    SetObject,
+    IntervalObject,
     Comparaison,
     LogicalExpr
 };
@@ -184,35 +188,38 @@ struct FunctionCall : public Expr {
     AstType type() const override { return AstType::FunctionCall; }
     std::string str() override {
         std::stringstream ss;
-        ss << "<FunctionCall name={" << name << "}, args={";
+        ss << "<FunctionCall name=<" << name << ">, args=<";
         if (arguments.empty()) {
-            ss << "null}>";
+            ss << "null>>";
         } else {
             for (auto& arg : arguments) {
                 ss << arg->str() << ", ";
             }
-            ss << "}>";
+            ss << ">>";
         }
         return ss.str();
     }
 };
 struct Function : public Expr {
     std::string name;
-    std::shared_ptr<Expr> body;
+    std::size_t call_count;
+    std::shared_ptr<Expr> body, ReturnStmt;
     std::vector<std::shared_ptr<Expr>> arguments;
+    std::map<std::string, std::variant<Number, Boolean, NullExpr, std::string>>
+        scope;
     Function(std::string_view name, const std::shared_ptr<Expr>& body,
              const std::vector<std::shared_ptr<Expr>>& args)
-        : name(name), body(body), arguments(args) {}
+        : name(name), body(body), arguments(args), call_count(0) {}
     AstType type() const override { return AstType::Function; }
     std::string str() override {
         std::string str;
-        str += ("<Function name={" + name + "}, args={");
+        str += ("<Function name=<" + name + ">, args=<");
         if (arguments.size() > 0) {
             for (auto& ar : arguments) str += ar->str() + ", ";
         } else {
             str += "null";
         }
-        str += std::string("}, ") + "body={" + body->str() + "}>";
+        str += std::string(">, ") + "body=<" + body->str() + ">>";
         return str;
     }
 };

@@ -28,6 +28,7 @@ enum class Tokens {
     Rcbracket,
     KeywordIf,
     KeywordElse,
+    KeywordReturn,
     KeywordAnd,
     KeywordNot,
     KeywordNull,
@@ -100,6 +101,8 @@ class Lexer {
             return Tokens::KeywordIn;
         } else if (ident == "null") {
             return Tokens::KeywordNull;
+        } else if (ident == "return") {
+            return Tokens::KeywordReturn;
         } else {
             return Tokens::Identifier;
         }
