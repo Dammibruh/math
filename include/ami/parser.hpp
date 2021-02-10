@@ -174,7 +174,7 @@ class Parser {
     ptr_t m_ParseInterval(TokenHandler tok) {
         bool left_is_strict = tok.is(Tokens::Rcbracket);
         m_Advance();
-        if (m_Get().isNot(Tokens::Rcbracket)) {
+        if (m_Get().isNot(Tokens::Rcbracket, Tokens::Lcbracket) && not_eof()) {
             ptr_t left_ = m_ParseFactor();  // since only numbers are valid
             if (m_Get().is(Tokens::Semicolon)) {
                 m_Advance();
