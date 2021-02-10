@@ -91,7 +91,7 @@ class Parser {
     std::vector<ptr_t> m_ParseFunctionDefArgs() {
         std::vector<ptr_t> args{};
         is_in_func_args = true;
-        if (m_Get().is(Tokens::Rparen)) {
+        if (m_Get().isNot(Tokens::Rparen)) {
             do {
                 if (m_Get().is(Tokens::Comma)) {
                     if (args.size() > 0 && m_Peek().isNot(Tokens::Rparen) &&
