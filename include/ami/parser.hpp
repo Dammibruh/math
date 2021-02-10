@@ -174,18 +174,23 @@ class Parser {
     ptr_t m_ParseInterval(TokenHandler tok) {
         bool left_is_strict = tok.is(Tokens::Rcbracket);
         m_Advance();
-        ptr_t left_ = m_ParseFactor();  // since only numbers are valid
-        if (m_Get().is(Tokens::Semicolon)) {
-            m_Advance();
-            ptr_t right_ = m_ParseFactor();
-            bool right_is_strict = m_Get().is(Tokens::Rcbracket);
-            m_Advance();
-            return std::make_shared<IntervalExpr>(
-                IntervalHandler(left_, left_is_strict),
-                IntervalHandler(right_, right_is_strict));
+        if (m_Get().isNot(Tokens::Rcbracket)) {
+            ptr_t left_ = m_ParseFactor();  // since only numbers are valid
+            if (m_Get().is(Tokens::Semicolon)) {
+                m_Advance();
+                ptr_t right_ = m_ParseFactor();
+                bool right_is_strict = m_Get().is(Tokens::Rcbracket);
+                m_Advance();
+                return std::make_shared<IntervalExpr>(
+                    IntervalHandler(left_, left_is_strict),
+                    IntervalHandler(right_, right_is_strict));
+            } else {
+                m_Err(
+                    fmt::format("expected ';' for interval found '{}' instead",
+                                m_Get().value));
+            }
         } else {
-            m_Err(fmt::format("expected ';' for interval found '{}' instead",
-                              m_Get().value));
+            m_Err();
         }
     }
     ptr_t m_ParseIdentAssign() {
