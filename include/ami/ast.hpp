@@ -2,6 +2,7 @@
 #include <fmt/core.h>
 
 #include <cstdio>
+#include <iomanip>
 #include <map>
 #include <memory>
 #include <set>
@@ -64,7 +65,12 @@ struct Number : public Expr {
         return fmt::format("<Number value=<{}>>", val);
     }
     AstType type() const override { return AstType::Number; }
-    std::string to_str() { return std::to_string(val); }
+    std::string to_str() {
+        std::stringstream ss;
+        ss << std::setprecision(15);
+        ss << val;
+        return ss.str();
+    }
 };
 struct Boolean : public Expr {
     bool val;

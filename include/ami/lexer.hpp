@@ -24,7 +24,7 @@ enum class Tokens {
     Assign,
     Edelim,  // 1e10
     Semicolon,
-    Lcbracket,  // for sets
+    Lcbracket,  // for intervals
     Rcbracket,
     KeywordIf,
     KeywordElse,
@@ -36,7 +36,7 @@ enum class Tokens {
     FunctionDef,  // f(x) -> expr
     Equals,
     GreaterThan,
-    Lbracket,
+    Lbracket,  // for sets
     Rbracket,
     GreaterThanOrEqual,
     LessThan,
@@ -48,6 +48,18 @@ struct TokenHandler {
     std::string value;
     Tokens token;
     std::size_t pos;
+    template <class... Args>
+    bool is(Args&&... args) {
+        for (auto& e : {(args)...})
+            if (e == this->token) return true;
+        return false;
+    }
+    template <class... Args>
+    bool isNot(Args&&... args) {
+        for (auto& e : {(args)...})
+            if (e != this->token) return true;
+        return false;
+    }
 };
 // lexer
 class Lexer {
