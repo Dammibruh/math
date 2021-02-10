@@ -396,10 +396,15 @@ class Interpreter {
         val_t s_min = visit(iexpr->min.value), s_max = visit(iexpr->max.value);
         Number *get_n = std::get_if<Number>(&s_min),
                *get_nn = std::get_if<Number>(&s_max);
-        if ((get_n == nullptr) || (get_nn == nullptr))
+        if ((get_n == nullptr) || (get_nn == nullptr)) {
             m_Err("intervals can only hold numbers");
-        else
-            return *iexpr;
+        } else {
+            return IntervalExpr(
+                IntervalHandler(std::make_shared<Number>(get_n->val),
+                                iexpr->min.strict),
+                IntervalHandler(std::make_shared<Number>(get_nn->val),
+                                iexpr->max.strict));
+        }
     }
     val_t m_VisitIntervalIn(IntervalIn* iexpr) {
         val_t num = visit(iexpr->number), inter = visit(iexpr->inter);
