@@ -13,7 +13,7 @@ namespace ami {
 namespace builtins {
 namespace details {
 using val_t =
-    std::variant<ami::Number, ami::Boolean, ami::NullExpr, std::string>;
+    std::variant<Number, Boolean, NullExpr, IntervalExpr, std::string>;
 using arg_t = std::vector<val_t>;
 struct FunctionHandler {
     using func_t = double (*)(const arg_t&);

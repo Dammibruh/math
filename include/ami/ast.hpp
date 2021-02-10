@@ -45,7 +45,8 @@ enum class AstType {
     Boolean,
     ReturnExpr,
     SetObject,
-    IntervalObject,
+    Interval,
+    IntervalIn,
     Comparaison,
     LogicalExpr
 };
@@ -237,7 +238,44 @@ struct IfExpr : public Expr {
         return str;
     }
 };
+struct IntervalHandler {
+    std::shared_ptr<Expr> value;
+    bool strict;
+    IntervalHandler(const std::shared_ptr<Expr>& v, bool s = false)
+        : value(v), strict(s) {}
+};
+struct IntervalExpr : public Expr {
+    IntervalHandler min, max;
+    IntervalExpr(IntervalHandler n, IntervalHandler u) : min(n), max(u) {}
+    std::string str() override {
+        return fmt::format(
+            "<Interval min=<value: {}, strict {}>, max=<value: {}, strict: "
+            "{}>>",
+            min.value->str(), min.strict, max.value->str(), max.strict);
+    }
+    AstType type() const override { return AstType::Interval; }
+    std::string to_str() {
+        char lft = min.strict ? ']' : '[';
+        char rgt = max.strict ? ']' : '[';
+        return fmt::format("interval: {}{}; {}{}", lft,
+                           static_cast<Number*>(min.value.get())->to_str(),
+                           static_cast<Number*>(max.value.get())->to_str(),
+                           rgt);
+    }
+};
+struct IntervalIn : public Expr {
+    std::shared_ptr<Expr> number;
+    std::shared_ptr<Expr> inter;  // no worries the cool guy interpreter will
+                                  // handle this parser is just for syntax
+    IntervalIn(const std::shared_ptr<Expr>& h,
+               const std::shared_ptr<Expr>& inter)
+        : number(h), inter(inter) {}
+    std::string str() override {
+        return fmt::format("<IntervalIn number=<{}>, interval=<{}>>",
+                           number->str(), inter->str());
+    }
+    AstType type() const override { return AstType::IntervalIn; }
+};
 // later cuz me is epic
 struct SetObject : public Expr {};
-struct IntervalExpr : public Expr {};
 }  // namespace ami

@@ -47,7 +47,8 @@ class Parser {
         return m_IsAnOp(tok) ||
                tok.is(Tokens::Lparen, Tokens::Rparen, Tokens::Digit,
                       Tokens::Delim, Tokens::Edelim, Tokens::KeywordElse,
-                      Tokens::Dot);
+                      Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
+                      Tokens::Rcbracket, Tokens::KeywordIn);
     }
     std::vector<ptr_t> m_ParseSplitedInput(Tokens end, Tokens delim,
                                            const std::string& delimstr,
@@ -170,6 +171,23 @@ class Parser {
             return std::make_shared<FunctionCall>(name, args);
         }
     }
+    ptr_t m_ParseInterval(TokenHandler tok) {
+        bool left_is_strict = tok.is(Tokens::Rcbracket);
+        m_Advance();
+        ptr_t left_ = m_ParseFactor();  // since only numbers are valid
+        if (m_Get().is(Tokens::Semicolon)) {
+            m_Advance();
+            ptr_t right_ = m_ParseFactor();
+            bool right_is_strict = m_Get().is(Tokens::Rcbracket);
+            m_Advance();
+            return std::make_shared<IntervalExpr>(
+                IntervalHandler(left_, left_is_strict),
+                IntervalHandler(right_, right_is_strict));
+        } else {
+            m_Err(fmt::format("expected ';' for interval found '{}' instead",
+                              m_Get().value));
+        }
+    }
     ptr_t m_ParseIdentAssign() {
         ptr_t value = m_ParseComp();
         while (not_eof() && m_Get().isNot(Tokens::Semicolon)) {
@@ -180,7 +198,7 @@ class Parser {
     }
     bool m_IsValidPunc(TokenHandler tok) {
         return tok.is(Tokens::Digit, Tokens::Dot, Tokens::Delim, Tokens::Edelim,
-                      Tokens::Minus);
+                      Tokens::Minus, Tokens::Semicolon);
     }
     std::string m_GetDigit() {
         std::string temp{};
@@ -211,6 +229,8 @@ class Parser {
                 } else {
                     break;
                 }
+            } else if (m_Get().is(Tokens::Semicolon)) {
+                break;
             }
             m_Advance();
         }
@@ -263,7 +283,8 @@ class Parser {
     }
     ptr_t m_ParseExpr() {
         ptr_t out = m_ParseTerm();
-        while (not_eof() && m_Get().is(Tokens::Plus, Tokens::Minus)) {
+        while (not_eof() &&
+               m_Get().is(Tokens::Plus, Tokens::Minus, Tokens::KeywordIn)) {
             if (m_Get().is(Tokens::Plus)) {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Plus, out,
@@ -272,6 +293,9 @@ class Parser {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Minus, out,
                                                      m_ParseTerm());
+            } else if (m_Get().is(Tokens::KeywordIn)) {
+                m_Advance();
+                out = std::make_shared<IntervalIn>(out, m_ParseFactor());
             }
         }
         return out;
@@ -431,6 +455,8 @@ class Parser {
             } else {
                 m_Err();
             }
+        } else if (tok.is(Tokens::Lcbracket, Tokens::Rcbracket)) {
+            return m_ParseInterval(tok);
         } else {
             m_Err();
         }

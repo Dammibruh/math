@@ -18,7 +18,8 @@
 #include "parser.hpp"
 
 namespace ami {
-using val_t = std::variant<Number, Boolean, NullExpr, std::string>;
+using val_t =
+    std::variant<Number, Boolean, NullExpr, IntervalExpr, std::string>;
 namespace scope {
 static std::map<std::string, val_t> userdefined;
 static std::map<std::string, ami::Function> userdefined_functions;
@@ -391,6 +392,39 @@ class Interpreter {
             m_Err("operator 'not' is only valid for numbers and booleans");
         }
     }
+    val_t m_VisitInterval(IntervalExpr* iexpr) {
+        val_t s_min = visit(iexpr->min.value), s_max = visit(iexpr->max.value);
+        Number *get_n = std::get_if<Number>(&s_min),
+               *get_nn = std::get_if<Number>(&s_max);
+        if ((get_n == nullptr) || (get_nn == nullptr))
+            m_Err("intervals can only hold numbers");
+        else
+            return *iexpr;
+    }
+    val_t m_VisitIntervalIn(IntervalIn* iexpr) {
+        val_t num = visit(iexpr->number), inter = visit(iexpr->inter);
+        Number* get_num = std::get_if<Number>(&num);
+        IntervalExpr* get_inter = std::get_if<IntervalExpr>(&inter);
+        if ((get_num != nullptr) && (get_inter != nullptr)) {
+            val_t s_min = visit(get_inter->min.value);
+            val_t s_max = visit(get_inter->max.value);
+            Number *get_min = std::get_if<Number>(&s_min),
+                   *get_max = std::get_if<Number>(&s_max);
+            if ((get_min != nullptr) && (get_max != nullptr)) {
+                return Boolean(
+                    (get_inter->min.strict ? (get_min->val < get_num->val)
+                                           : (get_min->val <= get_num->val)) &&
+                    (get_inter->max.strict ? (get_max->val > get_num->val)
+                                           : (get_max->val >= get_num->val)));
+            } else {
+                m_Err(
+                    "operator 'in' is only valid between numbers and "
+                    "intervals");
+            }
+        } else {
+            m_Err("operator 'in' is only valid between numbers and intervals");
+        }
+    }
 
    public:
     Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
@@ -478,6 +512,12 @@ class Interpreter {
             }
             case AstType::NullExpr: {
                 return m_VisitNull();
+            }
+            case AstType::Interval: {
+                return m_VisitInterval(static_cast<IntervalExpr*>(expr.get()));
+            }
+            case AstType::IntervalIn: {
+                return m_VisitIntervalIn(static_cast<IntervalIn*>(expr.get()));
             }
         }
     }
