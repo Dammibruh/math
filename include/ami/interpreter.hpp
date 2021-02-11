@@ -430,7 +430,9 @@ class Interpreter {
     }
 
    public:
-    Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
+    Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei) {
+        arguments_scope.reserve(100);
+    };
     val_t visit(ptr_t expr) {
         m_Pos++;
         switch (expr->type()) {
