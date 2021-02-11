@@ -3,9 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
-#include <deque>
-#include <iostream>
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -23,13 +21,13 @@ namespace ami {
 using val_t =
     std::variant<Number, Boolean, NullExpr, IntervalExpr, std::string>;
 namespace scope {
-static std::map<std::string, val_t> userdefined;
-static std::map<std::string, ami::Function> userdefined_functions;
+static std::unordered_map<std::string, val_t> userdefined;
+static std::unordered_map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using ptr_t = std::shared_ptr<Expr>;
     using scope_t = std::unordered_map<std::string, val_t>;
-    using nested_scope_t = std::vector<scope_t>;
+    using nested_scope_t = std::list<scope_t>;
     std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
     ami::exceptions::ExceptionInterface ei;
