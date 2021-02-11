@@ -179,11 +179,18 @@ class Parser {
             if (m_Get().is(Tokens::Semicolon)) {
                 m_Advance();
                 ptr_t right_ = m_ParseFactor();
-                bool right_is_strict = m_Get().is(Tokens::Rcbracket);
-                m_Advance();
-                return std::make_shared<IntervalExpr>(
-                    IntervalHandler(left_, left_is_strict),
-                    IntervalHandler(right_, right_is_strict));
+                if (m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
+                    bool right_is_strict = m_Get().is(Tokens::Rcbracket);
+                    m_Advance();
+                    return std::make_shared<IntervalExpr>(
+                        IntervalHandler(left_, left_is_strict),
+                        IntervalHandler(right_, right_is_strict));
+                } else {
+                    m_Err(
+                        fmt::format("expected ']' or '[' after interval "
+                                    "expression found '{}' instead",
+                                    m_Get().value));
+                }
             } else {
                 m_Err(
                     fmt::format("expected ';' for interval found '{}' instead",
