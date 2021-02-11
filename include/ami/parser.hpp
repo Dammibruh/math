@@ -292,8 +292,8 @@ class Parser {
     }
     ptr_t m_ParseExpr() {
         ptr_t out = m_ParseTerm();
-        while (not_eof() &&
-               m_Get().is(Tokens::Plus, Tokens::Minus, Tokens::KeywordIn)) {
+        while (not_eof() && m_Get().is(Tokens::Plus, Tokens::Minus,
+                                       Tokens::KeywordIn, Tokens::Unkown)) {
             if (m_Get().is(Tokens::Plus)) {
                 m_Advance();
                 out = std::make_shared<BinaryOpExpr>(Op::Plus, out,
@@ -305,6 +305,8 @@ class Parser {
             } else if (m_Get().is(Tokens::KeywordIn)) {
                 m_Advance();
                 out = std::make_shared<IntervalIn>(out, m_ParseFactor());
+            } else if (m_Get().is(Tokens::Unkown)) {
+                m_Err();
             }
         }
         return out;
@@ -406,25 +408,17 @@ class Parser {
                 m_Err();
             }
         } else if (tok.is(Tokens::Identifier)) {
-            if (not_eof() && !is_in_func_args) {
-                if (m_IsValidAfterNumber(m_Peek()) ||
-                    m_IsCompareToken(m_Peek()) || m_IsLogical(m_Peek())) {
-                    if (m_Peek().is(Tokens::Assign)) {
-                        m_Advance(2);  // skip the '='
-                        std::string name = tok.value;
-                        ptr_t body = m_ParseIdentAssign();
-                        return std::make_shared<UserDefinedIdentifier>(name,
-                                                                       body);
-                    } else if (m_Peek().is(Tokens::Lparen)) {
-                        m_Advance(2);  // skip the '('
-                        return m_ParseFunctionDefOrCall(tok);
-                    } else {
-                        m_Advance();
-                        return std::make_shared<Identifier>(tok.value);
-                    }
-                } else {
-                    m_Err();
-                }
+            if (m_Peek().is(Tokens::Assign)) {
+                m_Advance(2);  // skip the '='
+                std::string name = tok.value;
+                ptr_t body = m_ParseIdentAssign();
+                return std::make_shared<UserDefinedIdentifier>(name, body);
+            } else if (m_Peek().is(Tokens::Lparen)) {
+                m_Advance(2);  // skip the '('
+                return m_ParseFunctionDefOrCall(tok);
+            } else {
+                m_Advance();
+                return std::make_shared<Identifier>(tok.value);
             }
         } else if (tok.is(Tokens::Boolean)) {
             m_Advance();
