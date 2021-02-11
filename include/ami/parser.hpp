@@ -422,9 +422,9 @@ class Parser {
                         m_Advance();
                         return std::make_shared<Identifier>(tok.value);
                     }
+                } else {
+                    m_Err();
                 }
-            } else {
-                m_Err();
             }
         } else if (tok.is(Tokens::Boolean)) {
             m_Advance();
