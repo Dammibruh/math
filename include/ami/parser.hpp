@@ -382,16 +382,6 @@ class Parser {
                 m_Advance();
                 return std::make_shared<Number>(std::stod(tok.value));
             }
-        } else if (tok.is(Tokens::Plus)) {
-            if (not_eof() && m_Pos > 0) {
-                // we don't want syntaxes such as +5 to be valid
-                m_Advance();
-                return std::make_shared<BinaryOpExpr>(Op::Plus, m_ParseComp(),
-                                                      nullptr);
-            } else {
-                m_Advance();
-                m_Err();
-            }
         } else if (tok.is(Tokens::Minus)) {
             if (not_eof()) {
                 m_Advance();
@@ -401,8 +391,7 @@ class Parser {
                     return std::make_shared<NegativeExpr>(m_ParseFactor());
                     // much easier to handle expressions like `5-(-(-(-5)))`
                 } else {
-                    return std::make_shared<BinaryOpExpr>(
-                        Op::Minus, m_ParseComp(), nullptr);
+                    m_Err();
                 }
             } else {
                 m_Err();
@@ -468,7 +457,7 @@ class Parser {
             }
         } else if (tok.is(Tokens::Lcbracket, Tokens::Rcbracket)) {
             return m_ParseInterval(tok);
-        } else if (tok.is(Tokens::Unkown)) {
+        } else {
             m_Err();
         }
     }
