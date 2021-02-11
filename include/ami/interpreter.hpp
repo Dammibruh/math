@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -27,7 +28,7 @@ static std::map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using ptr_t = std::shared_ptr<Expr>;
-    using scope_t = std::map<std::string, val_t>;
+    using scope_t = std::unordered_map<std::string, val_t>;
     using nested_scope_t = std::vector<scope_t>;
     std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
@@ -430,9 +431,7 @@ class Interpreter {
     }
 
    public:
-    Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei) {
-        arguments_scope.reserve(100);
-    };
+    Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
     val_t visit(ptr_t expr) {
         m_Pos++;
         switch (expr->type()) {
