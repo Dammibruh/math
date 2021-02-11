@@ -412,9 +412,6 @@ class Parser {
         } else if (tok.is(Tokens::Boolean)) {
             m_Advance();
             return std::make_shared<Boolean>(tok.value);
-        } else if (tok.is(Tokens::Semicolon)) {
-            m_Advance(2);
-            return m_ParseComp();
         } else if (tok.is(Tokens::KeywordIf)) {
             m_Advance();
             if (m_Get().is(Tokens::Lparen)) {
