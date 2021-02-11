@@ -395,6 +395,10 @@ class Interpreter {
                *get_nn = std::get_if<Number>(&s_max);
         if ((get_n == nullptr) || (get_nn == nullptr)) {
             m_Err("intervals can only hold numbers");
+        } else if ((std::isinf(get_n->val) && !iexpr->min.strict) ||
+                   (std::isinf(get_nn->val) && iexpr->max.strict) ||
+                   (get_n->val > get_nn->val)) {
+            m_Err("invalid interval range");
         } else {
             return IntervalExpr(
                 IntervalHandler(std::make_shared<Number>(get_n->val),
@@ -418,13 +422,16 @@ class Interpreter {
                                            : (get_min->val <= get_num->val)) &&
                     (get_inter->max.strict ? (get_max->val > get_num->val)
                                            : (get_max->val >= get_num->val)));
+
             } else {
                 m_Err(
                     "operator 'in' is only valid between numbers and "
                     "intervals");
             }
         } else {
-            m_Err("operator 'in' is only valid between numbers and intervals");
+            m_Err(
+                "operator 'in' is only valid between numbers and "
+                "intervals");
         }
     }
 
