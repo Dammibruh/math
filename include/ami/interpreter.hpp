@@ -4,12 +4,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <deque>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
-#include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -26,8 +27,8 @@ static std::map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using ptr_t = std::shared_ptr<Expr>;
-    using scope_t = std::map<std::string, val_t>;
-    using nested_scope_t = std::vector<scope_t>;
+    using scope_t = std::deque<std::pair<std::string, val_t>>;
+    using nested_scope_t = std::deque<scope_t>;
     std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
     ami::exceptions::ExceptionInterface ei;
@@ -86,13 +87,11 @@ class Interpreter {
     }
     val_t m_VisitIdent(Identifier* ident) {
         bool is_a_function = !arguments_scope.empty();
-        auto get_arg_ident = [&ident, this]() {
-            for (auto v = this->arguments_scope.rbegin();
-                 v != this->arguments_scope.rend(); ++v) {
-                for (auto e = v->begin(); e != v->end(); ++e) {
-                    if (e->first == ident->name) {
-                        return e;
-                    }
+        auto get_arg_ident = [this, &ident] {
+            for (auto it = this->arguments_scope.rbegin();
+                 it != this->arguments_scope.rend(); ++it) {
+                for (auto ti = it->begin(); ti != it->end(); ++ti) {
+                    if (ti->first == ident->name) return ti;
                 }
             }
             return this->arguments_scope.back().end();
@@ -170,8 +169,7 @@ class Interpreter {
             for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
                 Identifier* ident =
                     static_cast<Identifier*>(fc_args.at(i).get());
-                std::string cname = ident->name;
-                tempscope.insert_or_assign(cname, visit(args.at(i)));
+                tempscope.emplace_back(ident->name, visit(args.at(i)));
             }
             std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
             get_userdefined->second.call_count++;

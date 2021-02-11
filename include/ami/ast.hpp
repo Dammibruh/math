@@ -8,6 +8,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -206,8 +207,6 @@ struct Function : public Expr {
     std::size_t call_count;
     std::shared_ptr<Expr> body, ReturnStmt;
     std::vector<std::shared_ptr<Expr>> arguments;
-    std::map<std::string, std::variant<Number, Boolean, NullExpr, std::string>>
-        scope;
     Function(std::string_view name, const std::shared_ptr<Expr>& body,
              const std::vector<std::shared_ptr<Expr>>& args)
         : name(name), body(body), arguments(args), call_count(0) {}
@@ -278,4 +277,5 @@ struct IntervalIn : public Expr {
 };
 // later cuz me is epic
 struct SetObject : public Expr {};
+struct Matrix : public Expr {};
 }  // namespace ami
