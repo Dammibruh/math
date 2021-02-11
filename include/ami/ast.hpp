@@ -255,7 +255,7 @@ struct IntervalExpr : public Expr {
     AstType type() const override { return AstType::Interval; }
     std::string to_str() {
         char lft = min.strict ? ']' : '[';
-        char rgt = max.strict ? ']' : '[';
+        char rgt = max.strict ? '[' : ']';
         return fmt::format("interval: {}{}; {}{}", lft,
                            static_cast<Number*>(min.value.get())->to_str(),
                            static_cast<Number*>(max.value.get())->to_str(),
