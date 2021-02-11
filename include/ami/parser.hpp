@@ -180,7 +180,7 @@ class Parser {
                 m_Advance();
                 ptr_t right_ = m_ParseFactor();
                 if (m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
-                    bool right_is_strict = m_Get().is(Tokens::Rcbracket);
+                    bool right_is_strict = m_Get().is(Tokens::Lcbracket);
                     m_Advance();
                     return std::make_shared<IntervalExpr>(
                         IntervalHandler(left_, left_is_strict),
