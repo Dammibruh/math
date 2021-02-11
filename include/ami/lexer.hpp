@@ -29,6 +29,7 @@ enum class Tokens {
     KeywordIf,
     KeywordElse,
     KeywordReturn,
+    KeywordUnion,
     KeywordAnd,
     KeywordNot,
     KeywordNull,

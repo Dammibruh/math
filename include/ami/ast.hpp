@@ -70,9 +70,9 @@ struct Number : public Expr {
         return fmt::format("<Number value=<{}>>", val);
     }
     AstType type() const override { return AstType::Number; }
-    std::string to_str() {
+    std::string to_str(int l = 15) {
         std::stringstream ss;
-        ss << std::setprecision(15);
+        ss << std::setprecision(l);
         ss << val;
         return ss.str();
     }
