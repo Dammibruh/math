@@ -406,17 +406,25 @@ class Parser {
                 m_Err();
             }
         } else if (tok.is(Tokens::Identifier)) {
-            if (m_Peek().is(Tokens::Assign)) {
-                m_Advance(2);  // skip the '='
-                std::string name = tok.value;
-                ptr_t body = m_ParseIdentAssign();
-                return std::make_shared<UserDefinedIdentifier>(name, body);
-            } else if (m_Peek().is(Tokens::Lparen)) {
-                m_Advance(2);  // skip the '('
-                return m_ParseFunctionDefOrCall(tok);
+            if (not_eof() && !is_in_func_args) {
+                if (m_IsValidAfterNumber(m_Peek()) ||
+                    m_IsCompareToken(m_Peek()) || m_IsLogical(m_Peek())) {
+                    if (m_Peek().is(Tokens::Assign)) {
+                        m_Advance(2);  // skip the '='
+                        std::string name = tok.value;
+                        ptr_t body = m_ParseIdentAssign();
+                        return std::make_shared<UserDefinedIdentifier>(name,
+                                                                       body);
+                    } else if (m_Peek().is(Tokens::Lparen)) {
+                        m_Advance(2);  // skip the '('
+                        return m_ParseFunctionDefOrCall(tok);
+                    } else {
+                        m_Advance();
+                        return std::make_shared<Identifier>(tok.value);
+                    }
+                }
             } else {
-                m_Advance();
-                return std::make_shared<Identifier>(tok.value);
+                m_Err();
             }
         } else if (tok.is(Tokens::Boolean)) {
             m_Advance();
@@ -466,7 +474,7 @@ class Parser {
             }
         } else if (tok.is(Tokens::Lcbracket, Tokens::Rcbracket)) {
             return m_ParseInterval(tok);
-        } else {
+        } else if (tok.is(Tokens::Unkown)) {
             m_Err();
         }
     }
