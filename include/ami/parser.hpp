@@ -205,6 +205,10 @@ class Parser {
         return tok.is(Tokens::Digit, Tokens::Dot, Tokens::Delim, Tokens::Edelim,
                       Tokens::Minus, Tokens::Semicolon);
     }
+    bool m_IsBreakable(TokenHandler tok) {
+        return tok.is(Tokens::Semicolon, Tokens::KeywordIn) ||
+               m_IsCompareToken(tok) || m_IsLogical(tok);
+    }
     std::string m_GetDigit() {
         std::string temp{};
         bool is_decimal{};
@@ -234,7 +238,7 @@ class Parser {
                 } else {
                     break;
                 }
-            } else if (m_Get().is(Tokens::Semicolon)) {
+            } else if (m_IsBreakable(m_Get())) {
                 break;
             }
             m_Advance();
@@ -392,7 +396,7 @@ class Parser {
                 if (m_Get().is(Tokens::Lparen, Tokens::Identifier,
                                Tokens::Digit, Tokens::Boolean)) {
                     // m_Advance();
-                    return std::make_shared<NegativeExpr>(m_ParseComp());
+                    return std::make_shared<NegativeExpr>(m_ParseFactor());
                     // much easier to handle expressions like `5-(-(-(-5)))`
                 } else {
                     return std::make_shared<BinaryOpExpr>(
