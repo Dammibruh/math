@@ -27,8 +27,8 @@ static std::map<std::string, ami::Function> userdefined_functions;
 }  // namespace scope
 class Interpreter {
     using ptr_t = std::shared_ptr<Expr>;
-    using scope_t = std::deque<std::pair<std::string, val_t>>;
-    using nested_scope_t = std::deque<scope_t>;
+    using scope_t = std::map<std::string, val_t>;
+    using nested_scope_t = std::vector<scope_t>;
     std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
     ami::exceptions::ExceptionInterface ei;
@@ -169,7 +169,7 @@ class Interpreter {
             for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
                 Identifier* ident =
                     static_cast<Identifier*>(fc_args.at(i).get());
-                tempscope.emplace_back(ident->name, visit(args.at(i)));
+                tempscope.insert_or_assign(ident->name, visit(args.at(i)));
             }
             std::shared_ptr<Expr> fc_body = get_userdefined->second.body;
             get_userdefined->second.call_count++;
