@@ -18,8 +18,8 @@
 #include "parser.hpp"
 
 namespace ami {
-using val_t =
-    std::variant<Number, Boolean, NullExpr, IntervalExpr, std::string>;
+using val_t = std::variant<Number, Boolean, NullExpr, IntervalExpr,
+                           IntervalUnion, std::string>;
 namespace scope {
 static std::unordered_map<std::string, val_t> userdefined;
 static std::unordered_map<std::string, ami::Function> userdefined_functions;
@@ -39,6 +39,9 @@ class Interpreter {
         ei.err = msg;
         ei.linepos = pos.value_or(m_Pos);
         throw ami::exceptions::BaseException(ei);
+    }
+    void m_CheckOrErr(bool t_y, const std::string& msg) {
+        if (!t_y) m_Err(msg);
     }
     void m_Err(const std::string& msg,
                std::optional<std::size_t> pos = std::nullopt) {
@@ -407,31 +410,103 @@ class Interpreter {
                                 iexpr->max.strict));
         }
     }
+    bool m_IsInInterval(long double t_num, long double t_min, long double t_max,
+                        bool strict_min, bool strict_max) {
+        return ((strict_min ? (t_min < t_num) : (t_min <= t_num)) &&
+                (strict_max ? (t_max > t_num) : (t_max >= t_num)));
+    }
     val_t m_VisitIntervalIn(IntervalIn* iexpr) {
         val_t num = visit(iexpr->number), inter = visit(iexpr->inter);
         Number* get_num = std::get_if<Number>(&num);
         IntervalExpr* get_inter = std::get_if<IntervalExpr>(&inter);
-        if ((get_num != nullptr) && (get_inter != nullptr)) {
+        IntervalUnion* get_union = std::get_if<IntervalUnion>(&inter);
+        m_CheckOrErr((get_num != nullptr) &&
+                         (get_inter != nullptr || get_union != nullptr),
+                     "operator 'in' is only valid between numbers and "
+                     "intervals");
+        if (get_union != nullptr) {
+            return m_VisitIntervalInUnionHelper(get_num->val, get_union);
+        } else {
             val_t s_min = visit(get_inter->min.value);
             val_t s_max = visit(get_inter->max.value);
             Number *get_min = std::get_if<Number>(&s_min),
                    *get_max = std::get_if<Number>(&s_max);
-            if ((get_min != nullptr) && (get_max != nullptr)) {
-                return Boolean(
-                    (get_inter->min.strict ? (get_min->val < get_num->val)
-                                           : (get_min->val <= get_num->val)) &&
-                    (get_inter->max.strict ? (get_max->val > get_num->val)
-                                           : (get_max->val >= get_num->val)));
-
-            } else {
-                m_Err(
-                    "operator 'in' is only valid between numbers and "
-                    "intervals");
-            }
+            m_CheckOrErr((get_min != nullptr) && (get_max != nullptr),
+                         "operator 'in' is only valid between numbers and "
+                         "intervals");
+            return Boolean(m_IsInInterval(get_num->val, get_min->val,
+                                          get_max->val, get_inter->min.strict,
+                                          get_inter->max.strict));
+        }
+    }
+    val_t m_VisitIntervalInUnionHelper(long double x, IntervalUnion* iun) {
+        m_CheckOrErr((iun != nullptr), "invalid union");
+        val_t t_right_inter = visit(iun->right_interval);
+        val_t t_left_inter = visit(iun->left_interval);
+        IntervalExpr* right_inter = std::get_if<IntervalExpr>(&t_right_inter);
+        IntervalExpr* left_inter = std::get_if<IntervalExpr>(&t_left_inter);
+        IntervalUnion* right_union = std::get_if<IntervalUnion>(&t_right_inter);
+        IntervalUnion* left_union = std::get_if<IntervalUnion>(&t_left_inter);
+        if (left_union != nullptr) {
+            val_t v_is_in = m_VisitIntervalInUnionHelper(x, left_union);
+            val_t v_n_max = visit(right_inter->max.value);
+            val_t v_n_min = visit(right_inter->min.value);
+            Number* n_max = std::get_if<Number>(&v_n_max);
+            Number* n_min = std::get_if<Number>(&v_n_min);
+            Boolean* is_in = std::get_if<Boolean>(&v_is_in);
+            return Boolean(is_in->val ||
+                           (m_IsInInterval(x, n_min->val, n_max->val,
+                                           right_inter->min.strict,
+                                           right_inter->max.strict)));
+        } else if (right_union != nullptr) {
+            val_t v_is_in = m_VisitIntervalInUnionHelper(x, right_union);
+            val_t v_n_max = visit(left_inter->max.value);
+            val_t v_n_min = visit(left_inter->min.value);
+            Number* n_max = std::get_if<Number>(&v_n_max);
+            Number* n_min = std::get_if<Number>(&v_n_min);
+            Boolean* is_in = std::get_if<Boolean>(&v_is_in);
+            return Boolean(is_in->val ||
+                           (m_IsInInterval(x, n_min->val, n_max->val,
+                                           left_inter->min.strict,
+                                           left_inter->max.strict)));
         } else {
-            m_Err(
-                "operator 'in' is only valid between numbers and "
-                "intervals");
+            val_t v_l_max = visit(left_inter->max.value);
+            val_t v_l_min = visit(left_inter->min.value);
+            val_t v_r_max = visit(right_inter->max.value);
+            val_t v_r_min = visit(right_inter->min.value);
+            Number* l_max = std::get_if<Number>(&v_l_max);
+            Number* l_min = std::get_if<Number>(&v_l_min);
+            Number* r_max = std::get_if<Number>(&v_r_max);
+            Number* r_min = std::get_if<Number>(&v_r_min);
+            return Boolean(m_IsInInterval(x, l_min->val, l_max->val,
+                                          left_inter->min.strict,
+                                          left_inter->max.strict) ||
+                           m_IsInInterval(x, r_min->val, r_max->val,
+                                          right_inter->min.strict,
+                                          right_inter->max.strict));
+        }
+    }
+    val_t m_VisitIntervalUnion(IntervalUnion* iun) {
+        val_t _l = visit(iun->left_interval), _r = visit(iun->right_interval);
+        IntervalExpr *left_inter = std::get_if<IntervalExpr>(&_l),
+                     *right_inter = std::get_if<IntervalExpr>(&_r);
+        IntervalUnion *left_un = std::get_if<IntervalUnion>(&_l),
+                      *right_un = std::get_if<IntervalUnion>(&_r);
+        m_CheckOrErr((left_inter != nullptr || left_un != nullptr) &&
+                         (right_inter != nullptr || right_un != nullptr),
+                     "union is only valid between intervals and intervals");
+        if (left_un != nullptr) {
+            return IntervalUnion(std::make_shared<IntervalUnion>(*left_un),
+                                 std::make_shared<IntervalExpr>(*right_inter));
+        } else if (right_un != nullptr) {
+            return IntervalUnion(std::make_shared<IntervalExpr>(*left_inter),
+                                 std::make_shared<IntervalUnion>(*right_un));
+        } else if (left_un != nullptr && right_un != nullptr) {
+            return IntervalUnion(std::make_shared<IntervalUnion>(*left_un),
+                                 std::make_shared<IntervalUnion>(*right_un));
+        } else {
+            return IntervalUnion(std::make_shared<IntervalExpr>(*left_inter),
+                                 std::make_shared<IntervalExpr>(*right_inter));
         }
     }
 
@@ -527,6 +602,10 @@ class Interpreter {
             }
             case AstType::IntervalIn: {
                 return m_VisitIntervalIn(static_cast<IntervalIn*>(expr.get()));
+            }
+            case AstType::IntervalUnion: {
+                return m_VisitIntervalUnion(
+                    static_cast<IntervalUnion*>(expr.get()));
             }
         }
     }

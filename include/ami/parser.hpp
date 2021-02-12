@@ -182,9 +182,21 @@ class Parser {
                 if (m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
                     bool right_is_strict = m_Get().is(Tokens::Lcbracket);
                     m_Advance();
-                    return std::make_shared<IntervalExpr>(
+                    auto out = std::make_shared<IntervalExpr>(
                         IntervalHandler(left_, left_is_strict),
                         IntervalHandler(right_, right_is_strict));
+                    if (m_Get().is(Tokens::KeywordUnion)) {
+                        m_Advance();
+                        if (not_eof() &&
+                            m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
+                            auto _l_int = m_ParseInterval(m_Get());
+                            return std::make_shared<IntervalUnion>(out, _l_int);
+                        } else {
+                            m_Err();
+                        }
+                    } else {
+                        return out;
+                    }
                 } else {
                     m_Err(
                         fmt::format("expected ']' or '[' after interval "
@@ -349,7 +361,7 @@ class Parser {
     }
     ptr_t m_ParseLogical() {
         ptr_t out = m_ParseFactor();
-        while (not_eof() && (m_IsLogical(m_Get()))) {
+        while (not_eof() && m_IsLogical(m_Get())) {
             if (m_Get().is(Tokens::KeywordAnd)) {
                 m_Advance();
                 out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
@@ -464,6 +476,9 @@ class Parser {
         } else {
             m_Err();
         }
+    }
+    void m_CheckOrErr(bool st, const std::string& m) {
+        if (!st) m_Err(m);
     }
     void m_Err() { m_Err("invalid syntax"); }
     void m_Err(const std::string& msg) { m_ThrowErr("SyntaxError", msg); }

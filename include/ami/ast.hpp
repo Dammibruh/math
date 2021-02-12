@@ -1,6 +1,7 @@
 #pragma once
 #include <fmt/core.h>
 
+#include <compare>
 #include <cstdio>
 #include <iomanip>
 #include <map>
@@ -48,6 +49,7 @@ enum class AstType {
     SetObject,
     Interval,
     IntervalIn,
+    IntervalUnion,
     Comparaison,
     LogicalExpr
 };
@@ -77,6 +79,15 @@ struct Number : public Expr {
         ss << val;
         return ss.str();
     }
+    std::strong_ordering operator<=>(const Number& oth) {
+        if (val > oth.val) {
+            return std::strong_ordering::greater;
+        } else if (val < oth.val) {
+            return std::strong_ordering::less;
+        } else if (val == oth.val) {
+            return std::strong_ordering::equal;
+        }
+    }
 };
 struct Boolean : public Expr {
     bool val;
@@ -92,6 +103,15 @@ struct Boolean : public Expr {
             raw_value = "true";
         else if (!_val)
             raw_value = "false";
+    }
+    std::strong_ordering operator<=>(const Boolean& oth) {
+        if (val > oth.val) {
+            return std::strong_ordering::greater;
+        } else if (val < oth.val) {
+            return std::strong_ordering::less;
+        } else if (val == oth.val) {
+            return std::strong_ordering::equal;
+        }
     }
     AstType type() const override { return AstType::Boolean; }
     std::string str() override {
@@ -252,14 +272,14 @@ struct IntervalExpr : public Expr {
             "{}>>",
             min.value->str(), min.strict, max.value->str(), max.strict);
     }
+    IntervalExpr(const IntervalExpr& oth) = default;
     AstType type() const override { return AstType::Interval; }
     std::string to_str() {
         char lft = min.strict ? ']' : '[';
         char rgt = max.strict ? '[' : ']';
-        return fmt::format("interval: {}{}; {}{}", lft,
-                           static_cast<Number*>(min.value.get())->to_str(),
-                           static_cast<Number*>(max.value.get())->to_str(),
-                           rgt);
+        return fmt::format(
+            "{}{}; {}{}", lft, static_cast<Number*>(min.value.get())->to_str(),
+            static_cast<Number*>(max.value.get())->to_str(), rgt);
     }
 };
 struct IntervalIn : public Expr {
@@ -269,13 +289,56 @@ struct IntervalIn : public Expr {
     IntervalIn(const std::shared_ptr<Expr>& h,
                const std::shared_ptr<Expr>& inter)
         : number(h), inter(inter) {}
+    IntervalIn(const IntervalIn& oth) = default;
     std::string str() override {
         return fmt::format("<IntervalIn number=<{}>, interval=<{}>>",
                            number->str(), inter->str());
     }
     AstType type() const override { return AstType::IntervalIn; }
 };
+struct IntervalUnion : public Expr {
+    std::shared_ptr<Expr> left_interval, right_interval;
+    IntervalUnion(const std::shared_ptr<Expr>& h,
+                  const std::shared_ptr<Expr>& inter)
+        : left_interval(h), right_interval(inter) {}
+    IntervalUnion(const IntervalUnion& oth) = default;
+    AstType type() const override { return AstType::IntervalUnion; }
+    std::string str() override {
+        return fmt::format("<IntervalUnion left=<{}>, right=<{}>>",
+                           left_interval->str(), right_interval->str());
+    }
+    std::string to_str() {
+        if ((left_interval->type() == AstType::Interval) &&
+            right_interval->type() == AstType::Interval) {
+            return fmt::format(
+                "{} union {}",
+                static_cast<IntervalExpr*>(left_interval.get())->to_str(),
+                static_cast<IntervalExpr*>(right_interval.get())->to_str());
+        } else if ((left_interval->type() == AstType::IntervalUnion) &&
+                   right_interval->type() == AstType::Interval) {
+            return fmt::format(
+                "{} union {}",
+                static_cast<IntervalUnion*>(left_interval.get())->to_str(),
+                static_cast<IntervalExpr*>(right_interval.get())->to_str());
+        } else if ((left_interval->type() == AstType::Interval) &&
+                   right_interval->type() == AstType::IntervalUnion) {
+            return fmt::format(
+                "{} union {}",
+                static_cast<IntervalExpr*>(left_interval.get())->to_str(),
+                static_cast<IntervalUnion*>(right_interval.get())->to_str());
+        } else if ((left_interval->type() == AstType::Interval) &&
+                   right_interval->type() == AstType::Interval) {
+            return fmt::format(
+                "{} union {}",
+                static_cast<IntervalExpr*>(left_interval.get())->to_str(),
+                static_cast<IntervalExpr*>(right_interval.get())->to_str());
+        }
+    }
+};
 // later cuz me is epic
-struct SetObject : public Expr {};
+struct SetObject : public Expr {
+    using inner_t = std::variant<Number>;
+    std::set<inner_t> value;
+};
 struct Matrix : public Expr {};
 }  // namespace ami

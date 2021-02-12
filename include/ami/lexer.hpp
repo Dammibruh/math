@@ -104,6 +104,8 @@ class Lexer {
             return Tokens::KeywordNull;
         } else if (ident == "return") {
             return Tokens::KeywordReturn;
+        } else if (ident == "union") {
+            return Tokens::KeywordUnion;
         } else {
             return Tokens::Identifier;
         }
@@ -262,6 +264,7 @@ static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Semicolon, "SEMICOLON"},
     {Tokens::Boolean, "BOOLEAN"},
     {Tokens::KeywordIf, "KEYWORDIF"},
+    {Tokens::KeywordUnion, "KEYWORDUNION"},
     {Tokens::KeywordElse, "KEYWORDELSE"},
     {Tokens::GreaterThan, "GREATERTHAN"},
     {Tokens::GreaterThanOrEqual, "GREATERTHANOREQUAL"},
