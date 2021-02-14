@@ -57,7 +57,7 @@ enum class AstType {
     SetObject,
     Interval,
     InExpr,
-    IntervalUnion,
+    UnionExpr,
     Comparison,
     LogicalExpr
 };
@@ -347,15 +347,15 @@ struct InExpr : public Expr {
         return fmt::format("{} in {}", number->to_str(), inter->to_str());
     }
 };
-struct IntervalUnion : public Expr {
+struct UnionExpr : public Expr {
     std::shared_ptr<Expr> left_interval, right_interval;
-    IntervalUnion(const std::shared_ptr<Expr>& h,
-                  const std::shared_ptr<Expr>& inter)
+    UnionExpr(const std::shared_ptr<Expr>& h,
+              const std::shared_ptr<Expr>& inter)
         : left_interval(h), right_interval(inter) {}
-    IntervalUnion(const IntervalUnion& oth) = default;
-    AstType type() const override { return AstType::IntervalUnion; }
+    UnionExpr(const UnionExpr& oth) = default;
+    AstType type() const override { return AstType::UnionExpr; }
     std::string str() override {
-        return fmt::format("<IntervalUnion left=<{}>, right=<{}>>",
+        return fmt::format("<UnionExpr left=<{}>, right=<{}>>",
                            left_interval->str(), right_interval->str());
     }
     std::string to_str() override {
@@ -365,18 +365,18 @@ struct IntervalUnion : public Expr {
                 "{} union {}",
                 static_cast<IntervalExpr*>(left_interval.get())->to_str(),
                 static_cast<IntervalExpr*>(right_interval.get())->to_str());
-        } else if ((left_interval->type() == AstType::IntervalUnion) &&
+        } else if ((left_interval->type() == AstType::UnionExpr) &&
                    right_interval->type() == AstType::Interval) {
             return fmt::format(
                 "{} union {}",
-                static_cast<IntervalUnion*>(left_interval.get())->to_str(),
+                static_cast<UnionExpr*>(left_interval.get())->to_str(),
                 static_cast<IntervalExpr*>(right_interval.get())->to_str());
         } else if ((left_interval->type() == AstType::Interval) &&
-                   right_interval->type() == AstType::IntervalUnion) {
+                   right_interval->type() == AstType::UnionExpr) {
             return fmt::format(
                 "{} union {}",
                 static_cast<IntervalExpr*>(left_interval.get())->to_str(),
-                static_cast<IntervalUnion*>(right_interval.get())->to_str());
+                static_cast<UnionExpr*>(right_interval.get())->to_str());
         } else if ((left_interval->type() == AstType::Interval) &&
                    right_interval->type() == AstType::Interval) {
             return fmt::format(

@@ -196,7 +196,7 @@ class Parser {
                         if (not_eof() &&
                             m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
                             auto _l_int = m_ParseInterval(m_Get());
-                            return std::make_shared<IntervalUnion>(out, _l_int);
+                            return std::make_shared<UnionExpr>(out, _l_int);
                         } else {
                             m_Err();
                         }

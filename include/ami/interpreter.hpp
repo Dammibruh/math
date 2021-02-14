@@ -440,27 +440,25 @@ class Interpreter {
     val_t m_VisitInExpr(InExpr* iexpr) {
         val_t num = visit(iexpr->number), inter = visit(iexpr->inter);
         Number* get_num = std::get_if<Number>(&num);
+        SetObject* get_setf = std::get_if<SetObject>(&num);
         IntervalExpr* get_inter = std::get_if<IntervalExpr>(&inter);
-        IntervalUnion* get_union = std::get_if<IntervalUnion>(&inter);
+        UnionExpr* get_union = std::get_if<UnionExpr>(&inter);
         SetObject* get_set = std::get_if<SetObject>(&inter);
-        m_CheckOrErr((get_num != nullptr) &&
-                         (get_inter != nullptr || get_union != nullptr ||
-                          get_set != nullptr),
-                     "operator 'in' is only valid between numbers, "
-                     "intervals, and sets");
-        if (get_union != nullptr) {
+        if (get_union != nullptr && get_num != nullptr) {
             return m_VisitInExprUnionHelper(get_num->val, get_union);
-        } else if (get_set != nullptr) {
-            val_t v = m_VisitSet(get_set);
-            SetObject* t_set = std::get_if<SetObject>(&v);
-            return Boolean((
-                std::find_if(t_set->value.begin(), t_set->value.end(),
-                             [this, get_num](auto e) {
-                                 auto t_l_value = visit(e);
-                                 return (std::get_if<Number>(&t_l_value)->val ==
-                                         get_num->val);
-                             }) != t_set->value.end()));
-        } else {
+        } else if (get_num != nullptr && get_set != nullptr) {
+            auto search_result = std::find_if(
+                get_set->value.begin(), get_set->value.end(),
+                [this, get_num](auto& e) {
+                    auto visited = visit(e);
+                    if (Number* t_number = std::get_if<Number>(&visited)) {
+                        return (t_number->val == get_num->val);
+                    } else {
+                        m_Err("invalid type");
+                    }
+                });
+            return Boolean(search_result != get_set->value.end());
+        } else if (get_num != nullptr && get_inter != nullptr) {
             val_t s_min = visit(get_inter->min.value);
             val_t s_max = visit(get_inter->max.value);
             Number *get_min = std::get_if<Number>(&s_min),
@@ -471,16 +469,31 @@ class Interpreter {
             return Boolean(m_IsInInterval(get_num->val, get_min->val,
                                           get_max->val, get_inter->min.strict,
                                           get_inter->max.strict));
+        } else if (get_setf != nullptr && get_set != nullptr) {
+            auto search_result = std::find_if(
+                get_set->value.begin(), get_set->value.end(),
+                [this, get_setf](auto& e) {
+                    auto visited = visit(e);
+                    if (SetObject* t_setobj =
+                            std::get_if<SetObject>(&visited)) {
+                        return (t_setobj->value == get_setf->value);
+                    } else {
+                        m_Err("invalid type");
+                    }
+                });
+            return Boolean(search_result != get_set->value.end());
+        } else {
+            m_Err("invalid use of keyword 'in'");
         }
     }
-    val_t m_VisitInExprUnionHelper(long double x, IntervalUnion* iun) {
+    val_t m_VisitInExprUnionHelper(long double x, UnionExpr* iun) {
         m_CheckOrErr((iun != nullptr), "invalid union");
         val_t t_right_inter = visit(iun->right_interval);
         val_t t_left_inter = visit(iun->left_interval);
         IntervalExpr* right_inter = std::get_if<IntervalExpr>(&t_right_inter);
         IntervalExpr* left_inter = std::get_if<IntervalExpr>(&t_left_inter);
-        IntervalUnion* right_union = std::get_if<IntervalUnion>(&t_right_inter);
-        IntervalUnion* left_union = std::get_if<IntervalUnion>(&t_left_inter);
+        UnionExpr* right_union = std::get_if<UnionExpr>(&t_right_inter);
+        UnionExpr* left_union = std::get_if<UnionExpr>(&t_left_inter);
         if (left_union != nullptr) {
             val_t v_is_in = m_VisitInExprUnionHelper(x, left_union);
             val_t v_n_max = visit(right_inter->max.value);
@@ -520,27 +533,36 @@ class Interpreter {
                                           right_inter->max.strict));
         }
     }
-    val_t m_VisitIntervalUnion(IntervalUnion* iun) {
+    val_t m_VisitUnionExpr(UnionExpr* iun) {
         val_t _l = visit(iun->left_interval), _r = visit(iun->right_interval);
         IntervalExpr *left_inter = std::get_if<IntervalExpr>(&_l),
                      *right_inter = std::get_if<IntervalExpr>(&_r);
-        IntervalUnion *left_un = std::get_if<IntervalUnion>(&_l),
-                      *right_un = std::get_if<IntervalUnion>(&_r);
+        SetObject *left_set = std::get_if<SetObject>(&_l),
+                  *right_set = std::get_if<SetObject>(&_r);
+        UnionExpr *left_un = std::get_if<UnionExpr>(&_l),
+                  *right_un = std::get_if<UnionExpr>(&_r);
         m_CheckOrErr((left_inter != nullptr || left_un != nullptr) &&
-                         (right_inter != nullptr || right_un != nullptr),
-                     "union is only valid between intervals and intervals");
+                         (right_inter != nullptr || right_un != nullptr) &&
+                         (right_set != nullptr && left_set == nullptr),
+                     "invalid use of 'union'");
         if (left_un != nullptr) {
-            return IntervalUnion(std::make_shared<IntervalUnion>(*left_un),
-                                 std::make_shared<IntervalExpr>(*right_inter));
+            return UnionExpr(std::make_shared<UnionExpr>(*left_un),
+                             std::make_shared<IntervalExpr>(*right_inter));
         } else if (right_un != nullptr) {
-            return IntervalUnion(std::make_shared<IntervalExpr>(*left_inter),
-                                 std::make_shared<IntervalUnion>(*right_un));
+            return UnionExpr(std::make_shared<IntervalExpr>(*left_inter),
+                             std::make_shared<UnionExpr>(*right_un));
         } else if (left_un != nullptr && right_un != nullptr) {
-            return IntervalUnion(std::make_shared<IntervalUnion>(*left_un),
-                                 std::make_shared<IntervalUnion>(*right_un));
-        } else {
-            return IntervalUnion(std::make_shared<IntervalExpr>(*left_inter),
-                                 std::make_shared<IntervalExpr>(*right_inter));
+            return UnionExpr(std::make_shared<UnionExpr>(*left_un),
+                             std::make_shared<UnionExpr>(*right_un));
+        } else if (left_inter != nullptr && right_inter != nullptr) {
+            return UnionExpr(std::make_shared<IntervalExpr>(*left_inter),
+                             std::make_shared<IntervalExpr>(*right_inter));
+        } else if (left_set != nullptr && right_set != nullptr) {
+            std::vector<ptr_t> set_elms;
+            for (auto& e : right_set->value) {
+                left_set->value.push_back(e);
+            }
+            return visit(std::make_shared<SetObject>(set_elms));
         }
     }
     val_t m_VisitSet(SetObject* so) {
@@ -582,8 +604,9 @@ class Interpreter {
         m_CheckOrErr(left_set->value.size() == right_set->value.size(),
                      "compared sets must have the same size");
         for (std::size_t i = 0; i < left_set->value.size(); ++i) {
-            m_CheckOrErr(right_set->value.at(i) == left_set->value.at(i),
-                         "compared sets must have the same type");
+            m_CheckOrErr(
+                right_set->value.at(i)->type() == left_set->value.at(i)->type(),
+                "compared sets must have the same type");
             val_t v_left_num = visit(left_set->value.at(i));
             val_t v_right_num = visit(right_set->value.at(i));
             Number* left_num = std::get_if<Number>(&v_left_num);
@@ -696,9 +719,8 @@ class Interpreter {
             case AstType::InExpr: {
                 return m_VisitInExpr(static_cast<InExpr*>(expr.get()));
             }
-            case AstType::IntervalUnion: {
-                return m_VisitIntervalUnion(
-                    static_cast<IntervalUnion*>(expr.get()));
+            case AstType::UnionExpr: {
+                return m_VisitUnionExpr(static_cast<UnionExpr*>(expr.get()));
             }
             case AstType::SetObject: {
                 return m_VisitSet(static_cast<SetObject*>(expr.get()));
