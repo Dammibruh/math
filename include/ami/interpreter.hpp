@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -16,18 +17,15 @@
 #include "builtins.hpp"
 #include "errors.hpp"
 #include "parser.hpp"
+#include "types.hpp"
 
 namespace ami {
-using val_t = std::variant<Number, Boolean, NullExpr, IntervalExpr,
-                           IntervalUnion, std::string>;
 namespace scope {
-static std::unordered_map<std::string, val_t> userdefined;
-static std::unordered_map<std::string, ami::Function> userdefined_functions;
+static ami::iscope_t userdefined;
+static ami::fscope_t userdefined_functions;
 }  // namespace scope
 class Interpreter {
-    using ptr_t = std::shared_ptr<Expr>;
-    using scope_t = std::unordered_map<std::string, val_t>;
-    using nested_scope_t = std::list<scope_t>;
+    using nested_scope_t = std::vector<iscope_t>;
     std::size_t max_call_count = 3'000;
     std::size_t m_Pos = 0;
     ami::exceptions::ExceptionInterface ei;
@@ -148,7 +146,7 @@ class Interpreter {
                           [&parsed_args, this](const auto& arg) {
                               parsed_args.push_back(visit(arg));
                           });
-            return Number(get_builtin->second.callback(parsed_args));
+            return get_builtin->second.callback(parsed_args);
         } else if (is_userdefined) {
             if (args.size() != get_userdefined->second.arguments.size()) {
                 m_Err(
@@ -167,7 +165,7 @@ class Interpreter {
             }
             std::vector<std::shared_ptr<Expr>> fc_args =
                 get_userdefined->second.arguments;
-            scope_t tempscope;
+            iscope_t tempscope;
             for (decltype(fc_args)::size_type i = 0; i < fc_args.size(); i++) {
                 Identifier* ident =
                     static_cast<Identifier*>(fc_args.at(i).get());
@@ -268,7 +266,7 @@ class Interpreter {
             m_Err("logical 'or' is only valid for numbers and booleans");
         }
     }
-    val_t m_VisitEquals(Comparaison* lexpr) {
+    val_t m_VisitEquals(Comparison* lexpr) {
         val_t _lhs = visit(lexpr->lhs);
         val_t _rhs = visit(lexpr->rhs);
         Number* lhs_get_number = std::get_if<Number>(&_lhs);
@@ -289,11 +287,15 @@ class Interpreter {
             return (Boolean(lhs_get_bool->val == rhs_get_number->val));
         } else {
             m_Err(
-                "comparaison operator '==' is only valid for numbers and "
+                "comparison operator '==' is only valid for numbers and "
                 "booleans");
         }
     }
-    val_t m_VisitGreaterThan(Comparaison* lexpr) {
+    val_t m_VisitNotEquals(Comparison* lexpr) {
+        auto v_bool = m_VisitEquals(lexpr);
+        return Boolean(!std::get_if<Boolean>(&v_bool)->val);
+    }
+    val_t m_VisitGreaterThan(Comparison* lexpr) {
         val_t _lhs = visit(lexpr->lhs);
         val_t _rhs = visit(lexpr->rhs);
         Number* lhs_get_number = std::get_if<Number>(&_lhs);
@@ -314,11 +316,11 @@ class Interpreter {
             return (Boolean(lhs_get_bool->val > rhs_get_number->val));
         } else {
             m_Err(
-                "comparaison operator '>' is only valid for numbers and "
+                "comparison operator '>' is only valid for numbers and "
                 "booleans");
         }
     }
-    val_t m_VisitLess(Comparaison* lexpr) {
+    val_t m_VisitLess(Comparison* lexpr) {
         val_t _lhs = visit(lexpr->lhs);
         val_t _rhs = visit(lexpr->rhs);
         Number* lhs_get_number = std::get_if<Number>(&_lhs);
@@ -339,21 +341,43 @@ class Interpreter {
             return (Boolean(lhs_get_bool->val < rhs_get_number->val));
         } else {
             m_Err(
-                "comparaison operator '<' is only valid for numbers and "
+                "comparison operator '<' is only valid for numbers and "
                 "booleans");
         }
     }
-    val_t m_VisitLessOrEqual(Comparaison* comp) {
+    val_t m_VisitLessOrEqual(Comparison* comp) {
         auto l = m_VisitLess(comp);
         auto r = m_VisitEquals(comp);
         return Boolean(std::get_if<Boolean>(&l)->val ||
                        std::get_if<Boolean>(&r)->val);
     }
-    val_t m_VisitGreaterOrEqual(Comparaison* comp) {
+    val_t m_VisitGreaterOrEqual(Comparison* comp) {
         auto l = m_VisitGreaterThan(comp);
         auto r = m_VisitEquals(comp);
         return Boolean(std::get_if<Boolean>(&l)->val ||
                        std::get_if<Boolean>(&r)->val);
+    }
+    val_t m_VisitOpAndAssignExpr(OpAndAssignExpr* oexpr) {
+        m_CheckOrErr(oexpr->lhs->type() == AstType::Identifier,
+                     "assign oprators are only valid for identifiers");
+        auto t_f_temp = visit(oexpr->rhs);
+        Number* t_new_num = std::get_if<Number>(&t_f_temp);
+        m_CheckOrErr(t_new_num != nullptr,
+                     "only numbers are valid as a right operand");
+        Identifier* ident = static_cast<Identifier*>(oexpr->lhs.get());
+        auto t_v_value = m_VisitIdent(ident);
+        Number* t_num = std::get_if<Number>(&t_v_value);
+        m_CheckOrErr(t_num != nullptr,
+                     "binary operators are only valid for numbers");
+        bool is_ud =
+            scope::userdefined.find(ident->name) != scope::userdefined.end();
+        m_CheckOrErr(
+            is_ud, fmt::format("'{}' isn't a defined identifier", ident->name));
+        auto out = visit(std::make_shared<BinaryOpExpr>(
+            oexpr->op, std::make_shared<Number>(t_num->val),
+            std::make_shared<Number>(t_new_num->val)));
+        scope::userdefined.insert_or_assign(ident->name, out);
+        return NullExpr{};
     }
     val_t m_VisitIfExpr(IfExpr* iexpr) {
         auto _cond = visit(iexpr->cond);
@@ -509,6 +533,22 @@ class Interpreter {
                                  std::make_shared<IntervalExpr>(*right_inter));
         }
     }
+    val_t m_VisitSet(SetObject* so) {
+        std::vector<ptr_t> content = so->value;
+        std::set<Number> numbers;
+        for (auto& e : content) {
+            auto n_v = visit(e);
+            m_CheckOrErr(std::get_if<Number>(&n_v) != nullptr,
+                         "set can only contains numbers");
+            numbers.insert(*std::get_if<Number>(&n_v));
+        }
+        content.clear();
+        for (auto& e : numbers) {
+            content.push_back(std::make_shared<Number>(e.val));
+        }
+
+        return SetObject(content);
+    }
 
    public:
     Interpreter(const ami::exceptions::ExceptionInterface& ei) : ei(ei){};
@@ -549,11 +589,11 @@ class Interpreter {
                         return m_VisitLogicalOr(lexpr);
                 }
             }
-            case AstType::Comparaison: {
-                Comparaison* comp = static_cast<Comparaison*>(expr.get());
+            case AstType::Comparison: {
+                Comparison* comp = static_cast<Comparison*>(expr.get());
                 switch (comp->op) {
                     default:
-                        m_Err("invalid comparaison operator");
+                        m_Err("invalid comparison operator");
                     case Op::Greater:
                         return m_VisitGreaterThan(comp);
                     case Op::GreaterOrEqual:
@@ -564,6 +604,8 @@ class Interpreter {
                         return m_VisitLessOrEqual(comp);
                     case Op::Equals:
                         return m_VisitEquals(comp);
+                    case Op::NotEquals:
+                        return m_VisitNotEquals(comp);
                 }
             }
             case AstType::Number: {
@@ -606,6 +648,13 @@ class Interpreter {
             case AstType::IntervalUnion: {
                 return m_VisitIntervalUnion(
                     static_cast<IntervalUnion*>(expr.get()));
+            }
+            case AstType::SetObject: {
+                return m_VisitSet(static_cast<SetObject*>(expr.get()));
+            }
+            case AstType::OpAndAssign: {
+                return m_VisitOpAndAssignExpr(
+                    static_cast<OpAndAssignExpr*>(expr.get()));
             }
         }
     }

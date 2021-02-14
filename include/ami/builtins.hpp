@@ -3,21 +3,21 @@
 #include <map>
 #include <memory>
 #include <numeric>
+#include <random>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "ast.hpp"
 #include "errors.hpp"
+#include "types.hpp"
+// this is shit just a complete mess trash, dumb code rewrite it
 
 namespace ami {
 namespace builtins {
 namespace details {
-using val_t = std::variant<Number, Boolean, NullExpr, IntervalExpr,
-                           IntervalUnion, std::string>;
-
-using arg_t = std::vector<val_t>;
 struct FunctionHandler {
-    using func_t = double (*)(const arg_t&);
+    using func_t = val_t (*)(const arg_t&);
     std::size_t args_count;
     func_t callback;
     FunctionHandler(std::size_t args_count, func_t func)
@@ -29,42 +29,88 @@ double to_number(const val_t& a) {
     else
         throw std::runtime_error("expected number in function args");
 }
-double b_sqrt(const arg_t& args) { return std::sqrt(to_number(args.at(0))); }
-double b_sin(const arg_t& args) { return std::sin(to_number(args.at(0))); }
-double b_cos(const arg_t& args) { return std::cos(to_number(args.at(0))); }
-double b_tan(const arg_t& args) { return std::tan(to_number(args.at(0))); }
-double b_sinh(const arg_t& args) { return std::sinh(to_number(args.at(0))); }
-double b_cosh(const arg_t& args) { return std::cosh(to_number(args.at(0))); }
-double b_tanh(const arg_t& args) { return std::tanh(to_number(args.at(0))); }
-double b_log(const arg_t& args) { return std::log(to_number(args.at(0))); }
-double b_log10(const arg_t& args) { return std::log10(to_number(args.at(0))); }
-double b_log2(const arg_t& args) { return std::log2(to_number(args.at(0))); }
-double b_min(const arg_t& args) {
-    return std::fmin(to_number(args.at(0)), to_number(args.at(1)));
+void checkOrErr(bool t, const std::string& f) {
+    if (!t) throw std::runtime_error(f);
 }
-double b_max(const arg_t& args) {
-    return std::fmax(to_number(args.at(0)), to_number(args.at(1)));
+val_t b_sqrt(const arg_t& args) {
+    return Number(std::sqrt(to_number(args.at(0))));
 }
-double b_abs(const arg_t& args) { return std::abs(to_number(args.at(0))); }
-double b_round(const arg_t& args) { return std::round(to_number(args.at(0))); }
-double b_ceil(const arg_t& args) { return std::ceil(to_number(args.at(0))); }
-double b_floor(const arg_t& args) { return std::floor(to_number(args.at(0))); }
-double b_gcd(const arg_t& args) {
+val_t b_sin(const arg_t& args) {
+    return Number(std::sin(to_number(args.at(0))));
+}
+val_t b_cos(const arg_t& args) {
+    return Number(std::cos(to_number(args.at(0))));
+}
+val_t b_tan(const arg_t& args) {
+    return Number(std::tan(to_number(args.at(0))));
+}
+val_t b_sinh(const arg_t& args) {
+    return Number(std::sinh(to_number(args.at(0))));
+}
+val_t b_cosh(const arg_t& args) {
+    return Number(std::cosh(to_number(args.at(0))));
+}
+val_t b_tanh(const arg_t& args) {
+    return Number(std::tanh(to_number(args.at(0))));
+}
+val_t b_log(const arg_t& args) {
+    return Number(std::log(to_number(args.at(0))));
+}
+val_t b_log10(const arg_t& args) {
+    return Number(std::log10(to_number(args.at(0))));
+}
+val_t b_log2(const arg_t& args) {
+    return Number(std::log2(to_number(args.at(0))));
+}
+val_t b_min(const arg_t& args) {
+    return Number(std::fmin(to_number(args.at(0)), to_number(args.at(1))));
+}
+val_t b_max(const arg_t& args) {
+    return Number(std::fmax(to_number(args.at(0)), to_number(args.at(1))));
+}
+val_t b_abs(const arg_t& args) {
+    return Number(std::abs(to_number(args.at(0))));
+}
+val_t b_round(const arg_t& args) {
+    return Number(std::round(to_number(args.at(0))));
+}
+val_t b_ceil(const arg_t& args) {
+    return Number(std::ceil(to_number(args.at(0))));
+}
+val_t b_floor(const arg_t& args) {
+    return Number(std::floor(to_number(args.at(0))));
+}
+val_t b_gcd(const arg_t& args) {
     double x = to_number(args.at(0));
     double y = to_number(args.at(1));
     arg_t r_args{Number(y), Number(std::fmod(x, y))};
-    return !y ? x : b_gcd(r_args);
+    return !y ? Number(x) : (b_gcd(r_args));
 }
-double b_lcm(const arg_t& args) {
+val_t b_lcm(const arg_t& args) {
     double x = to_number(args.at(0)), y = to_number(args.at(1));
-    return (x * y) / b_gcd(args);
+    return Number((x * y) / to_number(b_gcd(args)));
+}
+val_t b_insert(const arg_t& args) {
+    SetObject* t_f_set = (SetObject*)std::get_if<SetObject>(
+        &args.at(0));  // ops literaly have no other option
+    checkOrErr(t_f_set != nullptr, "expected set as a first function argument");
+    double t_f_num = to_number(args.at(1));
+    t_f_set->value.push_back(std::make_shared<Number>(t_f_num));
+    return *t_f_set;
+}
+std::random_device rnd;
+std::mt19937 gen{rnd()};
+val_t b_rand(const arg_t& args) {
+    std::uniform_real_distribution<> dist(to_number(args.at(0)),
+                                          to_number(args.at(1)));
+    return Number(dist(gen));
 }
 }  // namespace details
 std::map<std::string, long double> constants{{"pi", M_PI},
                                              {"tau", M_PI * 2},
                                              {"inf", INFINITY},
                                              {"nan", NAN},
-                                             {"eu", M_E}};
+                                             {"e", M_E}};
 std::map<std::string, details::FunctionHandler> functions{
     {"sqrt", details::FunctionHandler(1, details::b_sqrt)},
     {"sin", details::FunctionHandler(1, details::b_sin)},
@@ -84,6 +130,8 @@ std::map<std::string, details::FunctionHandler> functions{
     {"lcm", details::FunctionHandler(2, details::b_lcm)},
     {"log10", details::FunctionHandler(1, details::b_log10)},
     {"log2", details::FunctionHandler(1, details::b_log2)},
+    {"random", details::FunctionHandler(2, details::b_rand)},
+    {"insert", details::FunctionHandler(2, details::b_insert)},
 };
 }  // namespace builtins
 }  // namespace ami

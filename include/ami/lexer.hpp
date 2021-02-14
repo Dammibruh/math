@@ -11,12 +11,18 @@ enum class Tokens {
     Lparen,
     Rparen,
     Plus,
+    PlusAssign,
     Minus,
+    MinusAssign,
     Dot,
     Mult,
+    MultAssign,
     Div,
+    DivAssign,
     Pow,
+    PowAssign,
     Mod,
+    ModAssign,
     Identifier,
     Delim,
     Comma,
@@ -37,8 +43,10 @@ enum class Tokens {
     KeywordOr,
     FunctionDef,  // f(x) -> expr
     Equals,
+    NotEquals,
     GreaterThan,
     Lbracket,  // for sets
+    Factorial,
     Rbracket,
     GreaterThanOrEqual,
     LessThan,
@@ -150,21 +158,39 @@ class Lexer {
                     }
                     break;
                 case '*':
+                    if (m_Peek() == '=') {
+                        m_Advance();
+                        m_AddTok(Tokens::MultAssign, "*=");
+                    }
                     m_AddTok(Tokens::Mult, "*");
                     break;
                 case '+':
-                    m_AddTok(Tokens::Plus, "+");
+                    if (m_Peek() == '=') {
+                        m_Advance();
+                        m_AddTok(Tokens::PlusAssign, "+=");
+                    } else {
+                        m_AddTok(Tokens::Plus, "+");
+                    }
                     break;
                 case '-':
                     if (m_Peek() == '>') {
                         m_Advance();
                         m_AddTok(Tokens::FunctionDef, "->");
+                    } else if (m_Peek() == '=') {
+                        m_Advance();
+                        m_AddTok(Tokens::MinusAssign, "-=");
+
                     } else {
                         m_AddTok(Tokens::Minus, "-");
                     }
                     break;
                 case '/':
-                    m_AddTok(Tokens::Div, "/");
+                    if (m_Peek() == '=') {
+                        m_Advance();
+                        m_AddTok(Tokens::DivAssign, "/=");
+                    } else {
+                        m_AddTok(Tokens::Div, "/");
+                    }
                     break;
                 case '(':
                     m_AddTok(Tokens::Lparen, "(");
@@ -173,10 +199,20 @@ class Lexer {
                     m_AddTok(Tokens::Rparen, ")");
                     break;
                 case '^':
-                    m_AddTok(Tokens::Pow, "^");
+                    if (m_Peek() == '=') {
+                        m_Advance();
+                        m_AddTok(Tokens::PowAssign, "^=");
+                    } else {
+                        m_AddTok(Tokens::Pow, "^");
+                    }
                     break;
                 case '%':
-                    m_AddTok(Tokens::Mod, "%");
+                    if (m_Peek() == '=') {
+                        m_Advance();
+                        m_AddTok(Tokens::ModAssign, "%=");
+                    } else {
+                        m_AddTok(Tokens::Mod, "%");
+                    }
                     break;
                 case ',':
                     // for function args
@@ -192,11 +228,13 @@ class Lexer {
                     m_AddTok(Tokens::Delim, "'");
                     break;
                 case 'e':
-                    if (m_IsAlpha(m_Peek())) {
+                    if (m_IsAlpha(m_Peek()) && not_eof()) {
                         std::string ident = m_GetIdent();
                         m_AddTok(m_GetKeyword(ident), ident);
-                    } else {
+                    } else if (m_IsDigit(m_Prev())) {
                         m_AddTok(Tokens::Edelim, "e");
+                    } else {
+                        m_AddTok(Tokens::Identifier, "e");
                     }
                     break;
                 case '=':
@@ -238,6 +276,14 @@ class Lexer {
                 case '}':
                     m_AddTok(Tokens::Rbracket, "}");
                     break;
+                case '!':
+                    if (m_Peek() == '=' && !m_AtEnd()) {
+                        m_Advance();
+                        m_AddTok(Tokens::NotEquals, "!=");
+                    } else {
+                        m_AddTok(Tokens::Factorial, "!");
+                    }
+                    break;
             }
             m_Advance();
         }
@@ -249,6 +295,10 @@ static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Mult, "MULT"},
     {Tokens::Plus, "PLUS"},
     {Tokens::Minus, "MINUS"},
+    {Tokens::DivAssign, "DIVASSIGN"},
+    {Tokens::MultAssign, "MULTASSIGN"},
+    {Tokens::PlusAssign, "PLUSASSIGN"},
+    {Tokens::MinusAssign, "MINUSASSIGN"},
     {Tokens::Lparen, "LPAREN"},
     {Tokens::Rparen, "RPAREN"},
     {Tokens::Digit, "DIGIT"},
@@ -265,12 +315,16 @@ static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::Boolean, "BOOLEAN"},
     {Tokens::KeywordIf, "KEYWORDIF"},
     {Tokens::KeywordUnion, "KEYWORDUNION"},
+    {Tokens::KeywordIn, "KEYWORDIN"},
     {Tokens::KeywordElse, "KEYWORDELSE"},
+    {Tokens::Lbracket, "LBRACKET"},
+    {Tokens::Rbracket, "RBRACKET"},
     {Tokens::GreaterThan, "GREATERTHAN"},
     {Tokens::GreaterThanOrEqual, "GREATERTHANOREQUAL"},
     {Tokens::LessThan, "LESSTHAN"},
     {Tokens::LessThanOrEqual, "LESSTHANOREQUAL"},
     {Tokens::Equals, "EQUALS"},
+    {Tokens::NotEquals, "NOTEQUALS"},
     {Tokens::KeywordOr, "KEYWORDOR"},
     {Tokens::KeywordAnd, "KEYWORDAND"},
     {Tokens::KeywordNull, "KEYWORDNULL"},
