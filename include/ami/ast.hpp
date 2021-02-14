@@ -420,6 +420,9 @@ struct SetObject : public Expr {
         _str += "}";
         return _str;
     }
+    bool operator<(const SetObject& oth) const { return value < oth.value; }
+    bool operator>(const SetObject& oth) const { return value < oth.value; }
+    bool operator==(const SetObject& oth) const { return value < oth.value; }
 };
 struct Matrix : public Expr {};
 }  // namespace ami
