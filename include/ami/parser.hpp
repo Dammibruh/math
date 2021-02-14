@@ -85,10 +85,7 @@ class Parser {
         return out;
     }
     std::vector<ptr_t> m_ParseSetObj() {
-        auto val =
-            m_ParseSplitedInput(Tokens::Rbracket, Tokens::Comma, ",", "set");
-        m_Advance();
-        return val;
+        return m_ParseSplitedInput(Tokens::Rbracket, Tokens::Comma, ",", "set");
     }
     std::vector<ptr_t> m_ParseFunctionArgs() {
         in_special_context = true;
@@ -180,6 +177,7 @@ class Parser {
         }
     }
     ptr_t m_ParseInterval(TokenHandler tok) {
+        // todo use m_CheckOrErr
         bool left_is_strict = tok.is(Tokens::Rcbracket);
         m_Advance();
         if (m_Get().isNot(Tokens::Rcbracket, Tokens::Lcbracket) && not_eof()) {
@@ -344,7 +342,7 @@ class Parser {
                                                         m_ParseTerm());
             } else if (m_Get().is(Tokens::KeywordIn)) {
                 m_Advance();
-                out = std::make_shared<IntervalIn>(out, m_ParseFactor());
+                out = std::make_shared<InExpr>(out, m_ParseFactor());
             } else if (m_Get().is(Tokens::Unkown)) {
                 m_Err();
             }
@@ -518,7 +516,7 @@ class Parser {
             in_special_context = true;
             std::vector<ptr_t> elms = m_ParseSetObj();
             in_special_context = false;
-            m_Advance();  // skip '}'
+            // m_Advance();  // skip '}'
             return std::make_shared<SetObject>(elms);
         } else {
             m_Err();

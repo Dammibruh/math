@@ -56,7 +56,7 @@ enum class AstType {
     ReturnExpr,
     SetObject,
     Interval,
-    IntervalIn,
+    InExpr,
     IntervalUnion,
     Comparison,
     LogicalExpr
@@ -331,19 +331,18 @@ struct IntervalExpr : public Expr {
             static_cast<Number*>(max.value.get())->to_str(), rgt);
     }
 };
-struct IntervalIn : public Expr {
+struct InExpr : public Expr {
     std::shared_ptr<Expr> number;
     std::shared_ptr<Expr> inter;  // no worries the cool guy interpreter will
                                   // handle this parser is just for syntax
-    IntervalIn(const std::shared_ptr<Expr>& h,
-               const std::shared_ptr<Expr>& inter)
+    InExpr(const std::shared_ptr<Expr>& h, const std::shared_ptr<Expr>& inter)
         : number(h), inter(inter) {}
-    IntervalIn(const IntervalIn& oth) = default;
+    InExpr(const InExpr& oth) = default;
     std::string str() override {
-        return fmt::format("<IntervalIn number=<{}>, interval=<{}>>",
-                           number->str(), inter->str());
+        return fmt::format("<InExpr number=<{}>, interval=<{}>>", number->str(),
+                           inter->str());
     }
-    AstType type() const override { return AstType::IntervalIn; }
+    AstType type() const override { return AstType::InExpr; }
     std::string to_str() override {
         return fmt::format("{} in {}", number->to_str(), inter->to_str());
     }

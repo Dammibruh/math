@@ -56,7 +56,7 @@ class Interpreter {
             return Number(std::get<Number>(_lhs).val +
                           std::get<Number>(_rhs).val);
         else
-            m_Err("binary operation '+' is only valid for numbers");
+            m_Err("binary operation '+' is not valid in this context");
     }
     val_t m_VisitSub(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
@@ -65,7 +65,7 @@ class Interpreter {
             return Number(std::get<Number>(_lhs).val -
                           std::get<Number>(_rhs).val);
         else
-            m_Err("binary operation '-' is only valid for numbers");
+            m_Err("binary operation '-' is not valid in this context");
     }
     val_t m_VisitDiv(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
@@ -74,7 +74,7 @@ class Interpreter {
             return Number(std::get<Number>(_lhs).val /
                           std::get<Number>(_rhs).val);
         else
-            m_Err("binary operation '/' is only valid for numbers");
+            m_Err("binary operation '/' is not valid in this context");
     }
     val_t m_VisitMult(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
@@ -83,7 +83,7 @@ class Interpreter {
             return Number(std::get<Number>(_lhs).val *
                           std::get<Number>(_rhs).val);
         else
-            m_Err("binary operation '*' is only valid for numbers");
+            m_Err("binary operation '*' is not valid in this context");
     }
     val_t m_VisitIdent(Identifier* ident) {
         bool is_a_function = !arguments_scope.empty();
@@ -200,7 +200,7 @@ class Interpreter {
             return Number(std::fmod(std::get<Number>(_lhs).val,
                                     std::get<Number>(_rhs).val));
         else
-            m_Err("binary operation '%%' is only valid for numbers");
+            m_Err("binary operation '%%' is not valid in this context");
     }
     val_t m_VisitPow(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
@@ -209,14 +209,14 @@ class Interpreter {
             return Number(std::pow(std::get<Number>(_lhs).val,
                                    std::get<Number>(_rhs).val));
         else
-            m_Err("binary operation '^' is only valid for numbers");
+            m_Err("binary operation '^' is not valid in this context");
     }
     val_t m_VisitNegative(NegativeExpr* ex) {
         val_t val = visit(ex->value);
         if (m_IsValidOper(val))
             return Number(-std::get<Number>(val).val);
         else
-            m_Err("unary operator '-' is only valid for numbers");
+            m_Err("binary operation '-' is not valid in this context");
     }
     bool m_IsBoolOrNum(const val_t& oht) {}
     val_t m_VisitLogicalNot(LogicalExpr*) {}
@@ -240,7 +240,7 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return Boolean(lhs_get_bool->val && rhs_get_number->val);
         } else {
-            m_Err("logical 'and' is only valid for numbers and booleans");
+            m_Err("logical 'and' is not valid in this context");
         }
     }
     val_t m_VisitLogicalOr(LogicalExpr* lexpr) {
@@ -263,7 +263,7 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return Boolean(lhs_get_bool->val || rhs_get_number->val);
         } else {
-            m_Err("logical 'or' is only valid for numbers and booleans");
+            m_Err("logical 'or' is not valid in this context");
         }
     }
     val_t m_VisitEquals(Comparison* lexpr) {
@@ -273,6 +273,8 @@ class Interpreter {
         Boolean* lhs_get_bool = std::get_if<Boolean>(&_lhs);
         Number* rhs_get_number = std::get_if<Number>(&_rhs);
         Boolean* rhs_get_bool = std::get_if<Boolean>(&_rhs);
+        SetObject* lhs_get_set = std::get_if<SetObject>(&_lhs);
+        SetObject* rhs_get_set = std::get_if<SetObject>(&_rhs);
         bool lhs_is_number = lhs_get_number != nullptr;
         bool lhs_is_bool = lhs_get_bool != nullptr;
         bool rhs_is_number = rhs_get_number != nullptr;
@@ -285,10 +287,10 @@ class Interpreter {
             return (Boolean(lhs_get_number->val == rhs_get_bool->val));
         } else if (lhs_is_bool && rhs_is_number) {
             return (Boolean(lhs_get_bool->val == rhs_get_number->val));
+        } else if ((lhs_get_set != nullptr) && (rhs_get_set != nullptr)) {
+            return m_VisitEqualsSet(lhs_get_set, rhs_get_set);
         } else {
-            m_Err(
-                "comparison operator '==' is only valid for numbers and "
-                "booleans");
+            m_Err("comparison operator '==' is not valid in this context");
         }
     }
     val_t m_VisitNotEquals(Comparison* lexpr) {
@@ -315,9 +317,7 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return (Boolean(lhs_get_bool->val > rhs_get_number->val));
         } else {
-            m_Err(
-                "comparison operator '>' is only valid for numbers and "
-                "booleans");
+            m_Err("comparison operator '>' is not valid in this context");
         }
     }
     val_t m_VisitLess(Comparison* lexpr) {
@@ -340,9 +340,7 @@ class Interpreter {
         } else if (lhs_is_bool && rhs_is_number) {
             return (Boolean(lhs_get_bool->val < rhs_get_number->val));
         } else {
-            m_Err(
-                "comparison operator '<' is only valid for numbers and "
-                "booleans");
+            m_Err("comparison operator '<' is not valid in this context");
         }
     }
     val_t m_VisitLessOrEqual(Comparison* comp) {
@@ -439,17 +437,29 @@ class Interpreter {
         return ((strict_min ? (t_min < t_num) : (t_min <= t_num)) &&
                 (strict_max ? (t_max > t_num) : (t_max >= t_num)));
     }
-    val_t m_VisitIntervalIn(IntervalIn* iexpr) {
+    val_t m_VisitInExpr(InExpr* iexpr) {
         val_t num = visit(iexpr->number), inter = visit(iexpr->inter);
         Number* get_num = std::get_if<Number>(&num);
         IntervalExpr* get_inter = std::get_if<IntervalExpr>(&inter);
         IntervalUnion* get_union = std::get_if<IntervalUnion>(&inter);
+        SetObject* get_set = std::get_if<SetObject>(&inter);
         m_CheckOrErr((get_num != nullptr) &&
-                         (get_inter != nullptr || get_union != nullptr),
-                     "operator 'in' is only valid between numbers and "
-                     "intervals");
+                         (get_inter != nullptr || get_union != nullptr ||
+                          get_set != nullptr),
+                     "operator 'in' is only valid between numbers, "
+                     "intervals, and sets");
         if (get_union != nullptr) {
-            return m_VisitIntervalInUnionHelper(get_num->val, get_union);
+            return m_VisitInExprUnionHelper(get_num->val, get_union);
+        } else if (get_set != nullptr) {
+            val_t v = m_VisitSet(get_set);
+            SetObject* t_set = std::get_if<SetObject>(&v);
+            return Boolean((
+                std::find_if(t_set->value.begin(), t_set->value.end(),
+                             [this, get_num](auto e) {
+                                 auto t_l_value = visit(e);
+                                 return (std::get_if<Number>(&t_l_value)->val ==
+                                         get_num->val);
+                             }) != t_set->value.end()));
         } else {
             val_t s_min = visit(get_inter->min.value);
             val_t s_max = visit(get_inter->max.value);
@@ -463,7 +473,7 @@ class Interpreter {
                                           get_inter->max.strict));
         }
     }
-    val_t m_VisitIntervalInUnionHelper(long double x, IntervalUnion* iun) {
+    val_t m_VisitInExprUnionHelper(long double x, IntervalUnion* iun) {
         m_CheckOrErr((iun != nullptr), "invalid union");
         val_t t_right_inter = visit(iun->right_interval);
         val_t t_left_inter = visit(iun->left_interval);
@@ -472,7 +482,7 @@ class Interpreter {
         IntervalUnion* right_union = std::get_if<IntervalUnion>(&t_right_inter);
         IntervalUnion* left_union = std::get_if<IntervalUnion>(&t_left_inter);
         if (left_union != nullptr) {
-            val_t v_is_in = m_VisitIntervalInUnionHelper(x, left_union);
+            val_t v_is_in = m_VisitInExprUnionHelper(x, left_union);
             val_t v_n_max = visit(right_inter->max.value);
             val_t v_n_min = visit(right_inter->min.value);
             Number* n_max = std::get_if<Number>(&v_n_max);
@@ -483,7 +493,7 @@ class Interpreter {
                                            right_inter->min.strict,
                                            right_inter->max.strict)));
         } else if (right_union != nullptr) {
-            val_t v_is_in = m_VisitIntervalInUnionHelper(x, right_union);
+            val_t v_is_in = m_VisitInExprUnionHelper(x, right_union);
             val_t v_n_max = visit(left_inter->max.value);
             val_t v_n_min = visit(left_inter->min.value);
             Number* n_max = std::get_if<Number>(&v_n_max);
@@ -548,6 +558,18 @@ class Interpreter {
         }
 
         return SetObject(content);
+    }
+    val_t m_VisitEqualsSet(SetObject* left_set, SetObject* right_set) {
+        m_CheckOrErr(left_set->value.size() == right_set->value.size(),
+                     "compared sets must have the same size");
+        for (std::size_t i = 0; i < left_set->value.size(); ++i) {
+            val_t v_left_num = visit(left_set->value.at(i));
+            val_t v_right_num = visit(right_set->value.at(i));
+            Number* left_num = std::get_if<Number>(&v_left_num);
+            Number* right_num = std::get_if<Number>(&v_right_num);
+            if (left_num->val != right_num->val) return Boolean(false);
+        }
+        return Boolean(true);
     }
 
    public:
@@ -642,8 +664,8 @@ class Interpreter {
             case AstType::Interval: {
                 return m_VisitInterval(static_cast<IntervalExpr*>(expr.get()));
             }
-            case AstType::IntervalIn: {
-                return m_VisitIntervalIn(static_cast<IntervalIn*>(expr.get()));
+            case AstType::InExpr: {
+                return m_VisitInExpr(static_cast<InExpr*>(expr.get()));
             }
             case AstType::IntervalUnion: {
                 return m_VisitIntervalUnion(
