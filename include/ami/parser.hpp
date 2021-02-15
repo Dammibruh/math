@@ -12,13 +12,13 @@
 #include "ast.hpp"
 #include "errors.hpp"
 #include "lexer.hpp"
+#include "types.hpp"
 namespace ami {
 /*
  * TODO:
  * use m_CheckOrErr instead of nested if statements
  * */
 class Parser {
-    using ptr_t = std::shared_ptr<Expr>;
     std::vector<TokenHandler> m_Src;
     std::size_t m_Pos = 0;
     std::size_t m_ParensCount = 0;
@@ -476,6 +476,12 @@ class Parser {
             } else if (m_Peek().is(Tokens::Lparen)) {
                 m_Advance(2);  // skip the '('
                 return m_ParseFunctionDefOrCall(tok);
+            } else if (m_Peek().is(Tokens::Lcbracket)) {
+                m_Advance(2);
+                ptr_t idx = m_ParseFactor();
+                m_Advance();
+                return std::make_shared<SliceExpr>(
+                    std::make_shared<Identifier>(tok.value), idx);
             } else {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
@@ -530,8 +536,15 @@ class Parser {
             in_special_context = true;
             std::vector<ptr_t> elms = m_ParseSetObj();
             in_special_context = false;
-            // m_Advance();  // skip '}'
-            return std::make_shared<SetObject>(elms);
+            auto f_temp = std::make_shared<SetObject>(elms);
+            if (m_Get().is(Tokens::Lcbracket)) {
+                m_Advance();                  // skip '['
+                ptr_t idx = m_ParseFactor();  // parse the index
+                m_Advance();                  // skip ']'
+                return std::make_shared<SliceExpr>(f_temp, idx);
+            } else {
+                return f_temp;
+            }
         } else {
             m_Err();
         }

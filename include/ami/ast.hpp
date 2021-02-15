@@ -56,6 +56,7 @@ enum class AstType {
     ReturnExpr,
     SetObject,
     Interval,
+    SliceExpr,
     InExpr,
     UnionExpr,
     IntersectionExpr,
@@ -417,5 +418,17 @@ struct SetObject : public Expr {
     bool operator>(const SetObject& oth) const { return value > oth.value; }
     bool operator==(const SetObject& oth) const { return value == oth.value; }
 };
+struct SliceExpr : public Expr {
+    std::shared_ptr<Expr> target, index;
+    SliceExpr(const std::shared_ptr<Expr>& sr, std::shared_ptr<Expr> i)
+        : target(sr), index(i) {}
+    AstType type() const override { return AstType::SliceExpr; }
+    std::string to_str() override { return target->to_str(); }
+    std::string str() override {
+        return fmt::format("<SliceExpr target<{}> index=<{}>>", target->str(),
+                           index->str());
+    }
+};
+struct SetOpExpr : public Expr {};
 struct Matrix : public Expr {};
 }  // namespace ami

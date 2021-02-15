@@ -686,6 +686,18 @@ class Interpreter {
             return SetObject(so->value);
         }
     }
+    val_t m_VisitSliceExpr(SliceExpr* sexpr) {
+        val_t v_target = visit(sexpr->target);
+        val_t v_num = visit(sexpr->index);
+        SetObject* target = std::get_if<SetObject>(&v_target);
+        m_CheckOrErr(target != nullptr,
+                     "subscript expression is valid only for sets");
+        Number* num = std::get_if<Number>(&v_num);
+        m_CheckOrErr(num != nullptr, "invalid type");
+        m_CheckOrErr((num->val < target->value.size()) && (num->val >= 0),
+                     "invalid index");
+        return visit(target->value.at(num->val));
+    }
     val_t m_VisitEqualsSet(SetObject* left_set, SetObject* right_set) {
         m_CheckOrErr(left_set->value.size() == right_set->value.size(),
                      "compared sets must have the same size");
@@ -818,6 +830,9 @@ class Interpreter {
             case AstType::OpAndAssign: {
                 return m_VisitOpAndAssignExpr(
                     static_cast<OpAndAssignExpr*>(expr.get()));
+            }
+            case AstType::SliceExpr: {
+                return m_VisitSliceExpr(static_cast<SliceExpr*>(expr.get()));
             }
         }
     }

@@ -36,6 +36,8 @@ enum class Tokens {
     KeywordElse,
     KeywordReturn,
     KeywordUnion,
+    KeywordSubset,
+    KeywordSuperset,
     KeywordIntersection,
     KeywordAnd,
     KeywordNot,
@@ -115,6 +117,10 @@ class Lexer {
             return Tokens::KeywordReturn;
         } else if (ident == "union") {
             return Tokens::KeywordUnion;
+        } else if (ident == "superset") {
+            return Tokens::KeywordSuperset;
+        } else if (ident == "subset") {
+            return Tokens::KeywordSubset;
         } else if (ident == "intersection") {
             return Tokens::KeywordIntersection;
         } else {
@@ -223,8 +229,12 @@ class Lexer {
                     m_AddTok(Tokens::Comma, ",");
                     break;
                 case '.':
-                    // for decimals
-                    m_AddTok(Tokens::Dot, ".");
+                    if (m_Peek() == '.' && not_eof()) {
+                        m_Advance();
+                        m_AddTok(Tokens::Range, "..");
+                    } else {
+                        m_AddTok(Tokens::Dot, ".");
+                    }
                     break;
                 case '\'':
                     // delim for number to improve readability like :
