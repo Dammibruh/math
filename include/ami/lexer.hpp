@@ -164,8 +164,9 @@ class Lexer {
                     if (m_Peek() == '=') {
                         m_Advance();
                         m_AddTok(Tokens::MultAssign, "*=");
+                    } else {
+                        m_AddTok(Tokens::Mult, "*");
                     }
-                    m_AddTok(Tokens::Mult, "*");
                     break;
                 case '+':
                     if (m_Peek() == '=') {
