@@ -6,7 +6,14 @@ basic operations can be expressed as
 (number) (operator) (number)
 
 number = 1'00'00 or 1e3 or -number
-operator = + or - or / or % or * or ^
+operator = + or - or / or % or * or ^ 
+// there is also assignement operators 
+x += 1
+x -= 1
+x /= 1
+x *= 1
+x %= 1
+x ^= 2
 ```
 ### logical operations
 there is 2 logical operators `and` and `or` there is also Booleans, `true` or `false`
@@ -24,18 +31,22 @@ not true
 ```
 
 ### comparaisons
-there is also comparaison operators such as `==`, `<=`, `<`, `>`, `>=`
+there is also comparaison operators such as `==`, `<=`, `<`, `>`, `>=`, `!=`
 ```js
 0 == 0
 2 - 1 == 1
 1 == 2 -1
-...
+5 != -4
+0 <= 1
+1 < 1
+6 > 8
+6 >= 6
 ```
 
 ## identifiers
 idenifiers can be builtin or user defined
 ```js
-builtins = pi or tau or eu or inf or nan
+builtins = pi or tau or e or inf or nan
 or user defined by
 idenifier = expression
 x = 5
@@ -68,5 +79,24 @@ or user defined by
 func(x) -> x*2
 ```
 
+## intervals
+ami also supports intervals (union and intersection)
+```js
+5 in [0; 5]
+0 in ]-inf; 0[ union ]0; inf[
+10 in ]-inf; 0[ intersection ]0; inf[
+```
+
+## sets
+there is also sets
+```js
+x = {5, 10}
+y = {20, 4}
+x union y
+x intersection y
+x == y
+x != y
+```
+for sets only != and == are supported
 
 more soon™
