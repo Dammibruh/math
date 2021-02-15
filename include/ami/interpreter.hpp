@@ -646,10 +646,21 @@ class Interpreter {
                 std::make_shared<IntervalExpr>(*right_inter));
         } else if (left_set != nullptr && right_set != nullptr) {
             std::vector<ptr_t> set_elms;
+            std::vector<Number> temp_elms;
             for (auto& e : right_set->value) {
-                if (std::find(left_set->value.begin(), left_set->value.end(),
-                              e) != left_set->value.end())
+                auto n_v = visit(e);
+                m_CheckOrErr(std::get_if<Number>(&n_v) != nullptr,
+                             "set can only contains numbers");
+                temp_elms.push_back(*std::get_if<Number>(&n_v));
+            }
+            for (auto& e : left_set->value) {
+                auto n_v = visit(e);
+                m_CheckOrErr(std::get_if<Number>(&n_v) != nullptr,
+                             "set can only contains numbers");
+                if (std::find(temp_elms.begin(), temp_elms.end(),
+                              *std::get_if<Number>(&n_v)) != temp_elms.end()) {
                     set_elms.push_back(e);
+                }
             }
             return visit(std::make_shared<SetObject>(set_elms));
         } else {
@@ -663,7 +674,7 @@ class Interpreter {
             for (auto& e : content) {
                 auto n_v = visit(e);
                 m_CheckOrErr(std::get_if<Number>(&n_v) != nullptr,
-                             "set cam only contains numbers");
+                             "set can only contains numbers");
                 numbers.insert(*std::get_if<Number>(&n_v));
             }
             content.clear();
