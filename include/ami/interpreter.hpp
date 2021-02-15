@@ -566,38 +566,22 @@ class Interpreter {
         }
     }
     val_t m_VisitSet(SetObject* so) {
-        std::vector<ptr_t> content = so->value;
-        if (!content.empty()) {
-            auto t_first = visit(content.at(0));
-            if (std::get_if<Number>(&t_first)) {
-                std::set<Number> numbers;
-                for (auto& e : content) {
-                    auto n_v = visit(e);
-                    m_CheckOrErr(std::get_if<Number>(&n_v) != nullptr,
-                                 "set can only contains numbers");
-                    numbers.insert(*std::get_if<Number>(&n_v));
-                }
-                content.clear();
-                for (auto& e : numbers) {
-                    content.push_back(std::make_shared<Number>(e.val));
-                }
-                return SetObject(content);
-            } else if (get_if<SetObject>(&t_first)) {
-                std::set<SetObject> numbers;
-                for (auto& e : content) {
-                    auto n_v = visit(e);
-                    m_CheckOrErr(std::get_if<SetObject>(&n_v) != nullptr,
-                                 "set can only contains numbers");
-                    numbers.insert(*std::get_if<SetObject>(&n_v));
-                }
-                content.clear();
-                for (auto& e : numbers) {
-                    content.push_back(std::make_shared<SetObject>(e.value));
-                }
-                return SetObject(content);
+        if (!so->value.empty()) {
+            std::vector<ptr_t> content = so->value;
+            std::set<Number> numbers;
+            for (auto& e : content) {
+                auto n_v = visit(e);
+                m_CheckOrErr(std::get_if<Number>(&n_v) != nullptr,
+                             "set cam only contains numbers");
+                numbers.insert(*std::get_if<Number>(&n_v));
             }
-        } else {
+            content.clear();
+            for (auto& e : numbers) {
+                content.push_back(std::make_shared<Number>(e.val));
+            }
             return SetObject(content);
+        } else {
+            return SetObject(so->value);
         }
     }
     val_t m_VisitEqualsSet(SetObject* left_set, SetObject* right_set) {

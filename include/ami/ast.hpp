@@ -421,8 +421,8 @@ struct SetObject : public Expr {
         return _str;
     }
     bool operator<(const SetObject& oth) const { return value < oth.value; }
-    bool operator>(const SetObject& oth) const { return value < oth.value; }
-    bool operator==(const SetObject& oth) const { return value < oth.value; }
+    bool operator>(const SetObject& oth) const { return value > oth.value; }
+    bool operator==(const SetObject& oth) const { return value == oth.value; }
 };
 struct Matrix : public Expr {};
 }  // namespace ami
