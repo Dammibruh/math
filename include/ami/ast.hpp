@@ -58,6 +58,7 @@ enum class AstType {
     Interval,
     InExpr,
     UnionExpr,
+    IntersectionExpr,
     Comparison,
     LogicalExpr
 };
@@ -359,31 +360,23 @@ struct UnionExpr : public Expr {
                            left_interval->str(), right_interval->str());
     }
     std::string to_str() override {
-        if ((left_interval->type() == AstType::Interval) &&
-            right_interval->type() == AstType::Interval) {
-            return fmt::format(
-                "{} union {}",
-                static_cast<IntervalExpr*>(left_interval.get())->to_str(),
-                static_cast<IntervalExpr*>(right_interval.get())->to_str());
-        } else if ((left_interval->type() == AstType::UnionExpr) &&
-                   right_interval->type() == AstType::Interval) {
-            return fmt::format(
-                "{} union {}",
-                static_cast<UnionExpr*>(left_interval.get())->to_str(),
-                static_cast<IntervalExpr*>(right_interval.get())->to_str());
-        } else if ((left_interval->type() == AstType::Interval) &&
-                   right_interval->type() == AstType::UnionExpr) {
-            return fmt::format(
-                "{} union {}",
-                static_cast<IntervalExpr*>(left_interval.get())->to_str(),
-                static_cast<UnionExpr*>(right_interval.get())->to_str());
-        } else if ((left_interval->type() == AstType::Interval) &&
-                   right_interval->type() == AstType::Interval) {
-            return fmt::format(
-                "{} union {}",
-                static_cast<IntervalExpr*>(left_interval.get())->to_str(),
-                static_cast<IntervalExpr*>(right_interval.get())->to_str());
-        }
+        return fmt::format("{} union {}", left_interval->to_str(),
+                           right_interval->to_str());
+    }
+};
+struct InterSectionExpr : public Expr {
+    std::shared_ptr<Expr> lhs, rhs;
+    InterSectionExpr(const std::shared_ptr<Expr>& h,
+                     const std::shared_ptr<Expr>& inter)
+        : lhs(h), rhs(inter) {}
+    InterSectionExpr(const InterSectionExpr& oth) = default;
+    AstType type() const override { return AstType::IntersectionExpr; }
+    std::string str() override {
+        return fmt::format("<IntersectionExpr left=<{}>, right=<{}>>",
+                           lhs->str(), rhs->str());
+    }
+    std::string to_str() override {
+        return fmt::format("{} intersection {}", lhs->to_str(), rhs->to_str());
     }
 };
 struct SetObject : public Expr {

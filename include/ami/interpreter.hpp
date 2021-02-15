@@ -443,9 +443,14 @@ class Interpreter {
         SetObject* get_setf = std::get_if<SetObject>(&num);
         IntervalExpr* get_inter = std::get_if<IntervalExpr>(&inter);
         UnionExpr* get_union = std::get_if<UnionExpr>(&inter);
+        InterSectionExpr* get_intersection =
+            std::get_if<InterSectionExpr>(&inter);
         SetObject* get_set = std::get_if<SetObject>(&inter);
         if (get_union != nullptr && get_num != nullptr) {
             return m_VisitInExprUnionHelper(get_num->val, get_union);
+        } else if (get_intersection != nullptr && get_num != nullptr) {
+            return m_VisitInExprIntersectionHelper(get_num->val,
+                                                   get_intersection);
         } else if (get_num != nullptr && get_set != nullptr) {
             auto search_result = std::find_if(
                 get_set->value.begin(), get_set->value.end(),
@@ -533,6 +538,58 @@ class Interpreter {
                                           right_inter->max.strict));
         }
     }
+    val_t m_VisitInExprIntersectionHelper(long double x,
+                                          InterSectionExpr* iun) {
+        m_CheckOrErr((iun != nullptr), "invalid intersection");
+        val_t t_right_inter = visit(iun->rhs);
+        val_t t_left_inter = visit(iun->lhs);
+        IntervalExpr* right_inter = std::get_if<IntervalExpr>(&t_right_inter);
+        IntervalExpr* left_inter = std::get_if<IntervalExpr>(&t_left_inter);
+        InterSectionExpr* right_intersection =
+            std::get_if<InterSectionExpr>(&t_right_inter);
+        InterSectionExpr* left_intersection =
+            std::get_if<InterSectionExpr>(&t_left_inter);
+        if (left_intersection != nullptr) {
+            val_t v_is_in =
+                m_VisitInExprIntersectionHelper(x, left_intersection);
+            val_t v_n_max = visit(right_inter->max.value);
+            val_t v_n_min = visit(right_inter->min.value);
+            Number* n_max = std::get_if<Number>(&v_n_max);
+            Number* n_min = std::get_if<Number>(&v_n_min);
+            Boolean* is_in = std::get_if<Boolean>(&v_is_in);
+            return Boolean(is_in->val &&
+                           (m_IsInInterval(x, n_min->val, n_max->val,
+                                           right_inter->min.strict,
+                                           right_inter->max.strict)));
+        } else if (right_intersection != nullptr) {
+            val_t v_is_in =
+                m_VisitInExprIntersectionHelper(x, right_intersection);
+            val_t v_n_max = visit(left_inter->max.value);
+            val_t v_n_min = visit(left_inter->min.value);
+            Number* n_max = std::get_if<Number>(&v_n_max);
+            Number* n_min = std::get_if<Number>(&v_n_min);
+            Boolean* is_in = std::get_if<Boolean>(&v_is_in);
+            return Boolean(is_in->val &&
+                           (m_IsInInterval(x, n_min->val, n_max->val,
+                                           left_inter->min.strict,
+                                           left_inter->max.strict)));
+        } else {
+            val_t v_l_max = visit(left_inter->max.value);
+            val_t v_l_min = visit(left_inter->min.value);
+            val_t v_r_max = visit(right_inter->max.value);
+            val_t v_r_min = visit(right_inter->min.value);
+            Number* l_max = std::get_if<Number>(&v_l_max);
+            Number* l_min = std::get_if<Number>(&v_l_min);
+            Number* r_max = std::get_if<Number>(&v_r_max);
+            Number* r_min = std::get_if<Number>(&v_r_min);
+            return Boolean(m_IsInInterval(x, l_min->val, l_max->val,
+                                          left_inter->min.strict,
+                                          left_inter->max.strict) &&
+                           m_IsInInterval(x, r_min->val, r_max->val,
+                                          right_inter->min.strict,
+                                          right_inter->max.strict));
+        }
+    }
     val_t m_VisitUnionExpr(UnionExpr* iun) {
         val_t _l = visit(iun->left_interval), _r = visit(iun->right_interval);
         IntervalExpr *left_inter = std::get_if<IntervalExpr>(&_l),
@@ -555,13 +612,48 @@ class Interpreter {
                              std::make_shared<IntervalExpr>(*right_inter));
         } else if (left_set != nullptr && right_set != nullptr) {
             std::vector<ptr_t> set_elms = left_set->value;
-            ;
             for (auto& e : right_set->value) {
                 set_elms.push_back(e);
             }
             return visit(std::make_shared<SetObject>(set_elms));
         } else {
             m_Err("invalid use of 'union'");
+        }
+    }
+    val_t m_VisitInterSectionExpr(InterSectionExpr* iun) {
+        val_t _l = visit(iun->lhs), _r = visit(iun->rhs);
+        IntervalExpr *left_inter = std::get_if<IntervalExpr>(&_l),
+                     *right_inter = std::get_if<IntervalExpr>(&_r);
+        SetObject *left_set = std::get_if<SetObject>(&_l),
+                  *right_set = std::get_if<SetObject>(&_r);
+        InterSectionExpr *left_un = std::get_if<InterSectionExpr>(&_l),
+                         *right_un = std::get_if<InterSectionExpr>(&_r);
+        if (left_un != nullptr) {
+            return InterSectionExpr(
+                std::make_shared<InterSectionExpr>(*left_un),
+                std::make_shared<IntervalExpr>(*right_inter));
+        } else if (right_un != nullptr) {
+            return InterSectionExpr(
+                std::make_shared<IntervalExpr>(*left_inter),
+                std::make_shared<InterSectionExpr>(*right_un));
+        } else if (left_un != nullptr && right_un != nullptr) {
+            return InterSectionExpr(
+                std::make_shared<InterSectionExpr>(*left_un),
+                std::make_shared<InterSectionExpr>(*right_un));
+        } else if (left_inter != nullptr && right_inter != nullptr) {
+            return InterSectionExpr(
+                std::make_shared<IntervalExpr>(*left_inter),
+                std::make_shared<IntervalExpr>(*right_inter));
+        } else if (left_set != nullptr && right_set != nullptr) {
+            std::vector<ptr_t> set_elms;
+            for (auto& e : right_set->value) {
+                if (std::find(left_set->value.begin(), left_set->value.end(),
+                              e) != left_set->value.end())
+                    set_elms.push_back(e);
+            }
+            return visit(std::make_shared<SetObject>(set_elms));
+        } else {
+            m_Err("invalid use of 'intersection'");
         }
     }
     val_t m_VisitSet(SetObject* so) {
@@ -704,6 +796,10 @@ class Interpreter {
             }
             case AstType::UnionExpr: {
                 return m_VisitUnionExpr(static_cast<UnionExpr*>(expr.get()));
+            }
+            case AstType::IntersectionExpr: {
+                return m_VisitInterSectionExpr(
+                    static_cast<InterSectionExpr*>(expr.get()));
             }
             case AstType::SetObject: {
                 return m_VisitSet(static_cast<SetObject*>(expr.get()));

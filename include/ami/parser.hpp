@@ -234,7 +234,6 @@ class Parser {
         return tok.is(Tokens::Semicolon, Tokens::KeywordIn, Tokens::Rbracket) ||
                m_IsCompareToken(tok) || m_IsLogical(tok);
     }
-    bool m_IsSetOps(TokenHandler tok) { return tok.is(Tokens::KeywordUnion); }
     std::string m_GetDigit() {
         std::string temp{};
         bool is_decimal{};
@@ -413,12 +412,18 @@ class Parser {
         }
         return out;
     }
+    bool m_IsSetOps(TokenHandler tok) {
+        return tok.is(Tokens::KeywordUnion, Tokens::KeywordIntersection);
+    }
     ptr_t m_ParseSetOps() {
         ptr_t out = m_ParseFactor();
         while (not_eof() && m_IsSetOps(m_Get())) {
             if (m_Get().is(Tokens::KeywordUnion)) {
                 m_Advance();
                 out = std::make_shared<UnionExpr>(out, m_ParseFactor());
+            } else if (m_Get().is(Tokens::KeywordIntersection)) {
+                m_Advance();
+                out = std::make_shared<InterSectionExpr>(out, m_ParseFactor());
             }
         }
         return out;

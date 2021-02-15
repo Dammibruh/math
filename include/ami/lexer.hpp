@@ -36,6 +36,7 @@ enum class Tokens {
     KeywordElse,
     KeywordReturn,
     KeywordUnion,
+    KeywordIntersection,
     KeywordAnd,
     KeywordNot,
     KeywordNull,
@@ -50,7 +51,7 @@ enum class Tokens {
     Rbracket,
     GreaterThanOrEqual,
     LessThan,
-    Ellipsis,
+    Range,
     LessThanOrEqual,
     Boolean
 };
@@ -114,6 +115,8 @@ class Lexer {
             return Tokens::KeywordReturn;
         } else if (ident == "union") {
             return Tokens::KeywordUnion;
+        } else if (ident == "intersection") {
+            return Tokens::KeywordIntersection;
         } else {
             return Tokens::Identifier;
         }
