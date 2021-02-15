@@ -541,10 +541,6 @@ class Interpreter {
                   *right_set = std::get_if<SetObject>(&_r);
         UnionExpr *left_un = std::get_if<UnionExpr>(&_l),
                   *right_un = std::get_if<UnionExpr>(&_r);
-        m_CheckOrErr((left_inter != nullptr || left_un != nullptr) &&
-                         (right_inter != nullptr || right_un != nullptr) &&
-                         (right_set != nullptr && left_set == nullptr),
-                     "invalid use of 'union'");
         if (left_un != nullptr) {
             return UnionExpr(std::make_shared<UnionExpr>(*left_un),
                              std::make_shared<IntervalExpr>(*right_inter));
@@ -558,11 +554,14 @@ class Interpreter {
             return UnionExpr(std::make_shared<IntervalExpr>(*left_inter),
                              std::make_shared<IntervalExpr>(*right_inter));
         } else if (left_set != nullptr && right_set != nullptr) {
-            std::vector<ptr_t> set_elms;
+            std::vector<ptr_t> set_elms = left_set->value;
+            ;
             for (auto& e : right_set->value) {
-                left_set->value.push_back(e);
+                set_elms.push_back(e);
             }
             return visit(std::make_shared<SetObject>(set_elms));
+        } else {
+            m_Err("invalid use of 'union'");
         }
     }
     val_t m_VisitSet(SetObject* so) {

@@ -234,6 +234,7 @@ class Parser {
         return tok.is(Tokens::Semicolon, Tokens::KeywordIn, Tokens::Rbracket) ||
                m_IsCompareToken(tok) || m_IsLogical(tok);
     }
+    bool m_IsSetOps(TokenHandler tok) { return tok.is(Tokens::KeywordUnion); }
     std::string m_GetDigit() {
         std::string temp{};
         bool is_decimal{};
@@ -342,7 +343,7 @@ class Parser {
                                                         m_ParseTerm());
             } else if (m_Get().is(Tokens::KeywordIn)) {
                 m_Advance();
-                out = std::make_shared<InExpr>(out, m_ParseFactor());
+                out = std::make_shared<InExpr>(out, m_ParseSetOps());
             } else if (m_Get().is(Tokens::Unkown)) {
                 m_Err();
             }
@@ -398,18 +399,26 @@ class Parser {
         return out;
     }
     ptr_t m_ParseLogical() {
-        ptr_t out = m_ParseFactor();
+        ptr_t out = m_ParseSetOps();
         while (not_eof() && m_IsLogical(m_Get())) {
             if (m_Get().is(Tokens::KeywordAnd)) {
                 m_Advance();
                 out = std::make_shared<LogicalExpr>(Op::LogicalAnd, out,
-                                                    m_ParseFactor());
+                                                    m_ParseSetOps());
             } else if (m_Get().is(Tokens::KeywordOr)) {
                 m_Advance();
                 out = std::make_shared<LogicalExpr>(Op::LogicalOr, out,
-                                                    m_ParseFactor());
-            } else if (m_Get().is(Tokens::KeywordNot)) {
-                out = std::make_shared<NotExpr>(out);
+                                                    m_ParseSetOps());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseSetOps() {
+        ptr_t out = m_ParseFactor();
+        while (not_eof() && m_IsSetOps(m_Get())) {
+            if (m_Get().is(Tokens::KeywordUnion)) {
+                m_Advance();
+                out = std::make_shared<UnionExpr>(out, m_ParseFactor());
             }
         }
         return out;
