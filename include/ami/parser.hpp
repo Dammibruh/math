@@ -21,9 +21,7 @@ namespace ami {
 class Parser {
     std::vector<TokenHandler> m_Src;
     std::size_t m_Pos = 0;
-    std::size_t m_ParensCount = 0;
     ami::exceptions::ExceptionInterface ei;
-    bool in_special_context{};
     // to disable syntax checking for nunbers in funtion's args
 
     TokenHandler m_Get() {
@@ -49,6 +47,14 @@ class Parser {
                tok.is(Tokens::Lparen, Tokens::Rparen, Tokens::Digit,
                       Tokens::Delim, Tokens::Edelim, Tokens::KeywordElse,
                       Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
+                      Tokens::Comma, Tokens::Rcbracket, Tokens::KeywordIn,
+                      Tokens::Rbracket);
+    }
+    bool m_IsValidContext(TokenHandler tok) {
+        return m_IsAnOp(tok) ||
+               tok.is(Tokens::Lparen, Tokens::Rparen, Tokens::Digit,
+                      Tokens::Delim, Tokens::Edelim, Tokens::KeywordElse,
+                      Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
                       Tokens::Rcbracket, Tokens::KeywordIn, Tokens::Rbracket);
     }
     std::vector<ptr_t> m_ParseSplitedInput(Tokens end, Tokens delim,
@@ -62,20 +68,21 @@ class Parser {
          * */
         std::vector<ptr_t> out{};
         if (m_Get().isNot(end)) {
-            do {
+            while (m_Get().isNot(end)) {
                 if (m_Get().is(delim)) {
-                    if (out.size() > 0 && m_Peek().isNot(delim) && not_eof()) {
-                        m_Advance();
-                    } else {
+                    /*if ((out.size() > 0) && m_Peek().isNot(delim) &&
+                        not_eof()) {*/
+                    m_Advance();
+                    /*} else {
                         m_Err();
-                    }
+                    }*/
                 } else if (!not_eof()) {
                     m_ThrowErr("ParseError",
                                fmt::format("EOF while parsing {}", msg));
                 } else {
                     out.push_back(m_ParseComp());
                 }
-            } while (m_Get().isNot(end));
+            }
         }
         if (m_Get().isNot(end)) {
             m_ThrowErr("SyntaxError",
@@ -88,15 +95,12 @@ class Parser {
         return m_ParseSplitedInput(Tokens::Rbracket, Tokens::Comma, ",", "set");
     }
     std::vector<ptr_t> m_ParseFunctionArgs() {
-        in_special_context = true;
         std::vector<ptr_t> args = m_ParseSplitedInput(
             Tokens::Rparen, Tokens::Comma, ",", "function arguments");
-        in_special_context = false;
         return args;
     }
     std::vector<ptr_t> m_ParseFunctionDefArgs() {
         std::vector<ptr_t> args{};
-        in_special_context = true;
         if (m_Get().isNot(Tokens::Rparen)) {
             do {
                 if (m_Get().is(Tokens::Comma)) {
@@ -125,7 +129,6 @@ class Parser {
         if (m_Get().isNot(Tokens::Rparen)) {
             m_ThrowErr("SyntaxError", "expected ')' after arguments list");
         }
-        in_special_context = false;
         m_Advance();
         return args;
     }
@@ -174,48 +177,6 @@ class Parser {
         } else {
             m_Advance(-1);
             return std::make_shared<FunctionCall>(name, args);
-        }
-    }
-    ptr_t m_ParseInterval(TokenHandler tok) {
-        // todo use m_CheckOrErr
-        bool left_is_strict = tok.is(Tokens::Rcbracket);
-        m_Advance();
-        if (m_Get().isNot(Tokens::Rcbracket, Tokens::Lcbracket) && not_eof()) {
-            ptr_t left_ = m_ParseFactor();  // since only numbers are valid
-            if (m_Get().is(Tokens::Semicolon)) {
-                m_Advance();
-                ptr_t right_ = m_ParseFactor();
-                if (m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
-                    bool right_is_strict = m_Get().is(Tokens::Lcbracket);
-                    m_Advance();
-                    auto out = std::make_shared<IntervalExpr>(
-                        IntervalHandler(left_, left_is_strict),
-                        IntervalHandler(right_, right_is_strict));
-                    if (m_Get().is(Tokens::KeywordUnion)) {
-                        m_Advance();
-                        if (not_eof() &&
-                            m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket)) {
-                            auto _l_int = m_ParseInterval(m_Get());
-                            return std::make_shared<UnionExpr>(out, _l_int);
-                        } else {
-                            m_Err();
-                        }
-                    } else {
-                        return out;
-                    }
-                } else {
-                    m_Err(
-                        fmt::format("expected ']' or '[' after interval "
-                                    "expression found '{}' instead",
-                                    m_Get().value));
-                }
-            } else {
-                m_Err(
-                    fmt::format("expected ';' for interval found '{}' instead",
-                                m_Get().value));
-            }
-        } else {
-            m_Err();
         }
     }
     ptr_t m_ParseIdentAssign() {
@@ -428,6 +389,47 @@ class Parser {
         }
         return out;
     }
+    ptr_t m_ParseInterval() {
+        bool left_is_strict = m_Get().is(Tokens::Rcbracket);
+        m_Advance();
+        m_CheckOrErr(
+            m_Get().isNot(Tokens::Rcbracket, Tokens::Lcbracket) && not_eof(),
+            "invalid syntax");
+        ptr_t left_ = m_ParseFactor();  // since only numbers are valid
+        m_CheckOrErr(m_Get().is(Tokens::Semicolon),
+                     fmt::format("expected ';' for interval found '{}' instead",
+                                 m_Get().value));
+        m_Advance();
+        ptr_t right_ = m_ParseFactor();
+        m_CheckOrErr(m_Get().is(Tokens::Rcbracket, Tokens::Lcbracket),
+                     fmt::format("expected ']' or '[' after interval "
+                                 "expression found '{}' instead",
+                                 m_Get().value));
+        bool right_is_strict = m_Get().is(Tokens::Lcbracket);
+        m_Advance();
+        return std::make_shared<IntervalExpr>(
+            IntervalHandler(left_, left_is_strict),
+            IntervalHandler(right_, right_is_strict));
+    }
+    ptr_t m_ParseIntervalOrVm() {
+        m_Advance();
+        std::vector<TokenHandler> subvec(m_Src.begin() + m_Pos, m_Src.end());
+        auto find_semi =
+            std::find_if(subvec.begin(), subvec.end(),
+                         [](auto& e) { return e.is(Tokens::Semicolon); });
+        if (find_semi != subvec.end()) {
+            m_Advance(-1);
+            return m_ParseInterval();
+        } else {
+            std::vector<ptr_t> elms = m_ParseSplitedInput(
+                Tokens::Rcbracket, Tokens::Comma, ",", "vector/matrix");
+            if ((elms.size() == 2) || (elms.size() == 3)) {
+                return std::make_shared<Vector>(elms);
+            } else {
+                return std::make_shared<Matrix>(elms);
+            }
+        }
+    }
     ptr_t m_ParseFactor() {
         TokenHandler tok = m_Get();
         if (tok.is(Tokens::Lparen)) {
@@ -442,7 +444,7 @@ class Parser {
             }
             m_Err();
         } else if (tok.is(Tokens::Digit)) {
-            if (not_eof() && !in_special_context) {
+            if (not_eof()) {
                 if (m_IsValidAfterNumber(m_Peek()) ||
                     m_IsCompareToken(m_Peek()) || m_IsLogical(m_Peek())) {
                     return std::make_shared<Number>(std::stold(m_GetDigit()));
@@ -458,7 +460,6 @@ class Parser {
                 m_Advance();
                 if (m_Get().is(Tokens::Lparen, Tokens::Identifier,
                                Tokens::Digit, Tokens::Boolean)) {
-                    // m_Advance();
                     return std::make_shared<NegativeExpr>(m_ParseFactor());
                     // much easier to handle expressions like `5-(-(-(-5)))`
                 } else {
@@ -476,12 +477,6 @@ class Parser {
             } else if (m_Peek().is(Tokens::Lparen)) {
                 m_Advance(2);  // skip the '('
                 return m_ParseFunctionDefOrCall(tok);
-            } else if (m_Peek().is(Tokens::Lcbracket)) {
-                m_Advance(2);
-                ptr_t idx = m_ParseFactor();
-                m_Advance();
-                return std::make_shared<SliceExpr>(
-                    std::make_shared<Identifier>(tok.value), idx);
             } else {
                 m_Advance();
                 return std::make_shared<Identifier>(tok.value);
@@ -530,13 +525,13 @@ class Parser {
                 m_Err();
             }
         } else if (tok.is(Tokens::Lcbracket, Tokens::Rcbracket)) {
-            return m_ParseInterval(tok);
+            return m_ParseIntervalOrVm();
         } else if (tok.is(Tokens::Lbracket)) {
             m_Advance();  // skip '{'
-            in_special_context = true;
+            // in_special_context = true;
             std::vector<ptr_t> elms = m_ParseSetObj();
-            in_special_context = false;
-            auto f_temp = std::make_shared<SetObject>(elms);
+            // in_special_context = false;
+            ptr_t f_temp = std::make_shared<SetObject>(elms);
             if (m_Get().is(Tokens::Lcbracket)) {
                 m_Advance();                  // skip '['
                 ptr_t idx = m_ParseFactor();  // parse the index

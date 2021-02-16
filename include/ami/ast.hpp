@@ -1,8 +1,6 @@
 #pragma once
 #include <fmt/core.h>
 
-#include <compare>
-#include <cstdio>
 #include <iomanip>
 #include <map>
 #include <memory>
@@ -55,6 +53,9 @@ enum class AstType {
     Boolean,
     ReturnExpr,
     SetObject,
+    Matrix,
+    Vector,
+    Tensor,
     Interval,
     SliceExpr,
     InExpr,
@@ -86,19 +87,11 @@ struct Number : public Expr {
     std::string str() override {
         return fmt::format("<Number value=<{}>>", val);
     }
-    // Number(const Number& oth) = default;
     AstType type() const override { return AstType::Number; }
-    /*
-        if (val < oth.val)
-            return std::strong_ordering::less;
-        else if (val > oth.val)
-            return std::strong_ordering::greater;
-        else if (val == oth.val)
-            return std::strong_ordering::equal;
-    }*/
     bool operator<(const Number& n) const { return val < n.val; }
     bool operator>(const Number& n) const { return val > n.val; }
     bool operator==(const Number& n) const { return val == n.val; }
+    long double operator*(const Number& n) const { return (val * n.val); }
     std::string to_str() override {
         std::stringstream ss;
         ss << std::setprecision(15);
@@ -430,5 +423,69 @@ struct SliceExpr : public Expr {
     }
 };
 struct SetOpExpr : public Expr {};
-struct Matrix : public Expr {};
+struct Vector : public Expr {
+    std::vector<std::shared_ptr<Expr>> value;
+    Vector(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
+    AstType type() const override { return AstType::Vector; }
+    std::string str() override {
+        std::string _str{"<Vector value={"};
+        if (value.empty()) {
+            _str += "null";
+        } else {
+            for (auto& e : value) {
+                _str += e->str() + ", ";
+            }
+        }
+        _str += "}>";
+        return _str;
+    }
+    std::string to_str() override {
+        std::string _str{"["};
+        if (!value.empty()) {
+            for (decltype(value)::size_type x = 0; x < value.size(); ++x) {
+                if (x == (value.size() - 1))
+                    _str += value.at(x)->to_str();
+                else
+                    _str += value.at(x)->to_str() + ", ";
+            }
+        }
+        _str += "]";
+        return _str;
+    }
+    bool operator<(const Vector& oth) const { return value < oth.value; }
+    bool operator>(const Vector& oth) const { return value > oth.value; }
+    bool operator==(const Vector& oth) const { return value == oth.value; }
+};
+struct Matrix : public Expr {
+    std::vector<std::shared_ptr<Expr>>
+        value;  // cool interpreter will do the job
+    Matrix(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
+    AstType type() const override { return AstType::Matrix; }
+    std::string str() override {
+        std::string _str{"<Matrix value={"};
+        if (value.size()) {
+            _str += "null";
+        } else {
+            for (auto& e : value) {
+                _str += e->str() + ", ";
+            }
+        }
+        _str += "}>";
+        return _str;
+    }
+    std::string to_str() override {
+        std::string _str{"["};
+        if (!value.size()) {
+            for (decltype(value)::size_type x = 0; x < value.size(); ++x) {
+                if (x == (value.size() - 1))
+                    _str += value.at(x)->to_str();
+                else
+                    _str += value.at(x)->to_str() + ", ";
+            }
+        }
+        _str += "]";
+        return _str;
+    }
+};
+struct Tensor : public Expr {};
 }  // namespace ami

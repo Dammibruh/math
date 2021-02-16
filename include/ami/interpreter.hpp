@@ -101,11 +101,54 @@ class Interpreter {
     val_t m_VisitMult(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
         val_t _rhs = visit(boe->rhs);
-        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs)) {
             return Number(std::get<Number>(_lhs).val *
                           std::get<Number>(_rhs).val);
-        else
+        } else if (auto [lhs, rhs] = std::tuple{std::get_if<Number>(&_lhs),
+                                                std::get_if<Vector>(&_rhs)};
+                   (lhs != nullptr && rhs != nullptr)) {
+            std::vector<ptr_t> out;
+            for (auto& elm : rhs->value) {
+                val_t t_v_num = visit(elm);
+                Number* num = std::get_if<Number>(&t_v_num);
+                m_CheckOrErr(num != nullptr, "invalid vector type");
+                out.push_back(std::make_shared<Number>(num->val * lhs->val));
+            }
+            return visit(std::make_shared<Vector>(out));
+        } else if (auto [lhs, rhs] = std::tuple{std::get_if<Vector>(&_lhs),
+                                                std::get_if<Number>(&_rhs)};
+                   (lhs != nullptr && rhs != nullptr)) {
+            std::vector<ptr_t> out;
+            for (auto& elm : lhs->value) {
+                val_t t_v_num = visit(elm);
+                Number* num = std::get_if<Number>(&t_v_num);
+                m_CheckOrErr(num != nullptr, "invalid vector type");
+                out.push_back(std::make_shared<Number>(num->val * rhs->val));
+            }
+            return visit(std::make_shared<Vector>(out));
+        } else if (auto [lhs, rhs] = std::tuple{std::get_if<Vector>(&_lhs),
+                                                std::get_if<Vector>(&_rhs)};
+                   (lhs != nullptr && rhs != nullptr)) {
+            m_CheckOrErr(lhs->value.size() == rhs->value.size(),
+                         "vectors must have the same size");
+            std::vector<Number> lhs_val;
+            long double fnl = 0;  // dot product
+            for (auto& elm : lhs->value) {
+                val_t t_v_num = visit(elm);
+                Number* num = std::get_if<Number>(&t_v_num);
+                m_CheckOrErr(num != nullptr, "invalid vector type");
+                lhs_val.push_back(*num);
+            }
+            for (std::size_t i = 0; i < lhs_val.size(); i++) {
+                val_t t_v_num = visit(rhs->value.at(i));
+                Number* num = std::get_if<Number>(&t_v_num);
+                m_CheckOrErr(num != nullptr, "invalid vector type");
+                fnl += (num->val * lhs_val.at(i).val);
+            }
+            return visit(std::make_shared<Number>(fnl));
+        } else {
             m_Err("binary operation '*' is not valid in this context");
+        }
     }
     val_t m_VisitIdent(Identifier* ident) {
         bool is_a_function = !arguments_scope.empty();
@@ -708,6 +751,25 @@ class Interpreter {
             return SetObject(so->value);
         }
     }
+    val_t m_VisitVector(Vector* vec) {
+        m_CheckOrErr((vec->value.size() == 2) || (vec->value.size() == 3),
+                     "vector must have at least 2 elements");
+        for (auto& e : vec->value) {
+            val_t t_f_v_num = visit(e);
+            m_CheckOrErr(std::get_if<Number>(&t_f_v_num) != nullptr,
+                         "vectors can only contain numbers");
+        }
+        return Vector(vec->value);
+    }
+    val_t m_VisitMatrix(Matrix* matrix) {
+        for (auto& e : matrix->value) {
+            val_t v_inner = visit(e);
+            m_CheckOrErr((std::get_if<Number>(&v_inner) != nullptr) ||
+                             (std::get_if<Natrix>(&v_inner) != nullptr),
+                         "matrix can only contain numbers");
+        }
+        return Matrix(matrix->value);
+    }
     val_t m_VisitSliceExpr(SliceExpr* sexpr) {
         val_t v_target = visit(sexpr->target);
         val_t v_num = visit(sexpr->index);
@@ -855,6 +917,9 @@ class Interpreter {
             }
             case AstType::SliceExpr: {
                 return m_VisitSliceExpr(static_cast<SliceExpr*>(expr.get()));
+            }
+            case AstType::Vector: {
+                return m_VisitVector(static_cast<Vector*>(expr.get()));
             }
         }
     }
