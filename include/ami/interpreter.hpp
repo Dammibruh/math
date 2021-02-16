@@ -61,11 +61,33 @@ class Interpreter {
     val_t m_VisitSub(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
         val_t _rhs = visit(boe->rhs);
-        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs)) {
             return Number(std::get<Number>(_lhs).val -
                           std::get<Number>(_rhs).val);
-        else
+        } else if (auto [lhs, rhs] = std::tuple{std::get_if<SetObject>(&_lhs),
+                                                std::get_if<SetObject>(&_rhs)};
+                   (lhs != nullptr) && (rhs != nullptr)) {
+            std::vector<ptr_t> val;
+            std::vector<Number> f_temp;
+            for (auto& e : rhs->value) {
+                val_t t_v_num = visit(e);
+                Number* t_num = std::get_if<Number>(&t_v_num);
+                m_CheckOrErr(t_num != nullptr, "invalid type");
+                f_temp.push_back(*t_num);
+            }
+            for (auto& e : lhs->value) {
+                val_t t_v_num = visit(e);
+                Number* t_num = std::get_if<Number>(&t_v_num);
+                m_CheckOrErr(t_num != nullptr, "invalid type");
+                if (std::find(f_temp.begin(), f_temp.end(), *t_num) ==
+                    f_temp.end()) {
+                    val.push_back(e);
+                }
+            }
+            return visit(std::make_shared<SetObject>(val));
+        } else {
             m_Err("binary operation '-' is not valid in this context");
+        }
     }
     val_t m_VisitDiv(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
