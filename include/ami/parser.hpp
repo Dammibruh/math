@@ -422,7 +422,7 @@ class Parser {
             return m_ParseInterval();
         } else {
             std::vector<ptr_t> elms = m_ParseSplitedInput(
-                Tokens::Rcbracket, Tokens::Comma, ",", "vector/matrix");
+                Tokens::Rcbracket, Tokens::Comma, ",", "vector");
             if ((elms.size() == 2) || (elms.size() == 3)) {
                 return std::make_shared<Vector>(elms);
             } else {

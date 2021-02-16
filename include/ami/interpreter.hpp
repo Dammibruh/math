@@ -761,15 +761,6 @@ class Interpreter {
         }
         return Vector(vec->value);
     }
-    val_t m_VisitMatrix(Matrix* matrix) {
-        for (auto& e : matrix->value) {
-            val_t v_inner = visit(e);
-            m_CheckOrErr((std::get_if<Number>(&v_inner) != nullptr) ||
-                             (std::get_if<Natrix>(&v_inner) != nullptr),
-                         "matrix can only contain numbers");
-        }
-        return Matrix(matrix->value);
-    }
     val_t m_VisitSliceExpr(SliceExpr* sexpr) {
         val_t v_target = visit(sexpr->target);
         val_t v_num = visit(sexpr->index);
