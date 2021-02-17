@@ -7,22 +7,6 @@
 #include <string>
 #include <type_traits>
 #include <vector>
-#ifdef AMI_USE_PYTHON
-#include <pybind11/embed.h>
-#include <pybind11/pybind11.h>
-namespace py = pybind11;
-py::gil_scoped_acquire guard;
-py::module_ math = py::module_::import("math");
-py::object pyinf = math.attr("inf");
-py::object pynan = math.attr("nan");
-long double aminf = pyinf.cast<long double>();
-long double amnan = pynan.cast<long double>();
-#define AMI_INF aminf
-#define AMI_NAN amnan
-#else
-#define AMI_INF INFINITY
-#define AMI_NAN NAN
-#endif
 
 #include "ast.hpp"
 #include "errors.hpp"
@@ -116,8 +100,8 @@ val_t b_rand(const arg_t& args) {
 }  // namespace details
 std::map<std::string, long double> constants{{"pi", M_PI},
                                              {"tau", M_PI * 2},
-                                             {"inf", AMI_INF},
-                                             {"nan", AMI_NAN},
+                                             {"inf", INFINITY},
+                                             {"nan", NAN},
                                              {"e", M_E}};
 std::map<std::string, details::FunctionHandler> functions{
     {"sqrt", details::FunctionHandler(1, details::b_sqrt)},

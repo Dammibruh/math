@@ -897,13 +897,13 @@ class Interpreter {
         Number* num = std::get_if<Number>(&t_visit);
         m_CheckOrErr(num != nullptr, "invalid use of '!'");
         long double out = 1;
-        if (num->val >= 1e7 || num->val != num->val) {
-            return Number(INFINITY);
-        } else {
+        if (std::isfinite(num->val) && (num->val <= 1e7)) {
             for (long double i = 1; i <= num->val; ++i) {
                 out *= i;
             }
             return Number(out);
+        } else {
+            return Number(INFINITY);
         }
     }
     val_t m_VisitPoint(Point* p) {
