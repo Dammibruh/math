@@ -271,7 +271,7 @@ struct Function : public Expr {
     std::vector<std::shared_ptr<Expr>> arguments;
     Function(std::string_view name, const std::shared_ptr<Expr>& body,
              const std::vector<std::shared_ptr<Expr>>& args)
-        : name(name), body(body), arguments(args), call_count(0) {}
+        : name(name), call_count(0), body(body), arguments(args) {}
     AstType type() const override { return AstType::Function; }
     std::string str() override {
         std::string str;
@@ -373,6 +373,23 @@ struct InterSectionExpr : public Expr {
         return fmt::format("{} intersection {}", lhs->to_str(), rhs->to_str());
     }
 };
+namespace details {
+static std::string vecToString(const std::vector<std::shared_ptr<Expr>>& vec,
+                               std::string_view start = "{",
+                               std::string_view end = "}") {
+    std::string out{start};
+    if (!vec.empty()) {
+        for (std::size_t x = 0; x < vec.size(); ++x) {
+            if (x == (vec.size() - 1))
+                out += vec.at(x)->to_str();
+            else
+                out += vec.at(x)->to_str() + ", ";
+        }
+    }
+    out += end;
+    return out;
+}
+}  // namespace details
 struct SetObject : public Expr {
     // checking and stuff is handled by the interpreter cuz too lazy
     // to write a non sense virtual overload spaceship operator and
@@ -394,19 +411,7 @@ struct SetObject : public Expr {
         _str += "}>";
         return _str;
     }
-    std::string to_str() override {
-        std::string _str{"{"};
-        if (!value.empty()) {
-            for (decltype(value)::size_type x = 0; x < value.size(); ++x) {
-                if (x == (value.size() - 1))
-                    _str += value.at(x)->to_str();
-                else
-                    _str += value.at(x)->to_str() + ", ";
-            }
-        }
-        _str += "}";
-        return _str;
-    }
+    std::string to_str() override { return details::vecToString(value); }
     bool operator<(const SetObject& oth) const { return value < oth.value; }
     bool operator>(const SetObject& oth) const { return value > oth.value; }
     bool operator==(const SetObject& oth) const { return value == oth.value; }
@@ -425,7 +430,7 @@ struct SliceExpr : public Expr {
 struct SetOpExpr : public Expr {};
 struct Vector : public Expr {
     std::vector<std::shared_ptr<Expr>> value;
-    Vector(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
+    explicit Vector(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
     AstType type() const override { return AstType::Vector; }
     std::string str() override {
         std::string _str{"<Vector value={"};
@@ -440,17 +445,7 @@ struct Vector : public Expr {
         return _str;
     }
     std::string to_str() override {
-        std::string _str{"["};
-        if (!value.empty()) {
-            for (decltype(value)::size_type x = 0; x < value.size(); ++x) {
-                if (x == (value.size() - 1))
-                    _str += value.at(x)->to_str();
-                else
-                    _str += value.at(x)->to_str() + ", ";
-            }
-        }
-        _str += "]";
-        return _str;
+        return details::vecToString(value, "[", "]");
     }
     bool operator<(const Vector& oth) const { return value < oth.value; }
     bool operator>(const Vector& oth) const { return value > oth.value; }
@@ -459,7 +454,7 @@ struct Vector : public Expr {
 struct Matrix : public Expr {
     std::vector<std::shared_ptr<Expr>>
         value;  // cool interpreter will do the job
-    Matrix(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
+    explicit Matrix(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
     AstType type() const override { return AstType::Matrix; }
     std::string str() override {
         std::string _str{"<Matrix value={"};
@@ -474,18 +469,7 @@ struct Matrix : public Expr {
         return _str;
     }
     std::string to_str() override {
-        std::string _str{"["};
-        if (!value.size()) {
-            for (decltype(value)::size_type x = 0; x < value.size(); ++x) {
-                if (x == (value.size() - 1))
-                    _str += value.at(x)->to_str();
-                else
-                    _str += value.at(x)->to_str() + ", ";
-            }
-        }
-        _str += "]";
-        return _str;
+        return details::vecToString(value, "[", "]");
     }
 };
-struct Tensor : public Expr {};
 }  // namespace ami

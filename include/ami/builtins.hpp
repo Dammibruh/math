@@ -90,14 +90,6 @@ val_t b_lcm(const arg_t& args) {
     double x = to_number(args.at(0)), y = to_number(args.at(1));
     return Number((x * y) / to_number(b_gcd(args)));
 }
-val_t b_insert(const arg_t& args) {
-    SetObject* t_f_set = (SetObject*)std::get_if<SetObject>(
-        &args.at(0));  // ops literaly have no other option
-    checkOrErr(t_f_set != nullptr, "expected set as a first function argument");
-    double t_f_num = to_number(args.at(1));
-    t_f_set->value.push_back(std::make_shared<Number>(t_f_num));
-    return *t_f_set;
-}
 std::random_device rnd;
 std::mt19937 gen{rnd()};
 val_t b_rand(const arg_t& args) {
@@ -131,7 +123,6 @@ std::map<std::string, details::FunctionHandler> functions{
     {"log10", details::FunctionHandler(1, details::b_log10)},
     {"log2", details::FunctionHandler(1, details::b_log2)},
     {"random", details::FunctionHandler(2, details::b_rand)},
-    {"insert", details::FunctionHandler(2, details::b_insert)},
 };
 }  // namespace builtins
 }  // namespace ami

@@ -473,7 +473,7 @@ class Interpreter {
             return Boolean(!_number->val);
         } else if (auto _bool = std::get_if<Boolean>(&value)) {
             return Boolean(!_bool->val);
-        } else if (auto _null = std::get_if<NullExpr>(&value)) {
+        } else if (std::get_if<NullExpr>(&value)) {
             return Boolean(true);
         } else {
             m_Err("operator 'not' is only valid for numbers and booleans");

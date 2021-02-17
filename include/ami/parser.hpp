@@ -31,11 +31,6 @@ class Parser {
         return m_Src.at((m_Pos) == 0 ? 0 : m_Pos - x);
     }
     bool not_eof() { return m_Pos < m_Src.size(); }
-    bool m_IsDigit(const std::string& str) {
-        for (auto& c : str)
-            if (!std::isdigit(c)) return false;
-        return true;
-    }
     bool m_IsAnOp(TokenHandler tok) {
         return tok.is(Tokens::Mod, Tokens::ModAssign, Tokens::Div,
                       Tokens::DivAssign, Tokens::Mult, Tokens::MultAssign,
@@ -49,13 +44,6 @@ class Parser {
                       Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
                       Tokens::Comma, Tokens::Rcbracket, Tokens::KeywordIn,
                       Tokens::Rbracket);
-    }
-    bool m_IsValidContext(TokenHandler tok) {
-        return m_IsAnOp(tok) ||
-               tok.is(Tokens::Lparen, Tokens::Rparen, Tokens::Digit,
-                      Tokens::Delim, Tokens::Edelim, Tokens::KeywordElse,
-                      Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
-                      Tokens::Rcbracket, Tokens::KeywordIn, Tokens::Rbracket);
     }
     std::vector<ptr_t> m_ParseSplitedInput(Tokens end, Tokens delim,
                                            const std::string& delimstr,
