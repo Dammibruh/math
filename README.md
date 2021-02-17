@@ -1,5 +1,5 @@
 # ami
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5348f5a6a61746ef950e5e6e5291b562)](https://www.codacy.com/gh/dammi-i/ami/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dammi-i/ami&amp;utm_campaign=Badge_Grade)  ![release](https://img.shields.io/badge/release-0.3.3--beta-brightgreen?style=flat-square)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/5348f5a6a61746ef950e5e6e5291b562)](https://www.codacy.com/gh/dammi-i/ami/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=dammi-i/ami&amp;utm_campaign=Badge_Grade)
 
 An advanced math interpreter written in C++
 supports math constants, functions and user defined identifiers, functions, sets, vectors, intervals

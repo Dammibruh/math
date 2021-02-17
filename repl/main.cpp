@@ -25,6 +25,10 @@ int main() {
                 std::cout << _get->to_str() << '\n';
             else if (auto _get = std::get_if<ami::SetObject>(&output))
                 std::cout << _get->to_str() << '\n';
+            else if (auto _get = std::get_if<ami::Point>(&output))
+                std::cout << _get->to_str() << '\n';
+            else if (auto _get = std::get_if<ami::Vector>(&output))
+                std::cout << _get->to_str() << '\n';
         } catch (const ami::exceptions::BaseException& x) {
             std::cout << "err: " << x.what() << '\n';
         }
