@@ -773,6 +773,16 @@ class Interpreter {
                      "invalid index");
         return visit(target->value.at(num->val));
     }
+    val_t m_VisitFactorial(FactorialExpr* fexpr) {
+        val_t t_visit = visit(fexpr->value);
+        Number* num = std::get_if<Number>(&t_visit);
+        m_CheckOrErr(num != nullptr, "invalid use of '!'");
+        long double out = 1;
+        for (long double i = 1; i <= num->val; ++i) {
+            out *= i;
+        }
+        return Number(out);
+    }
     val_t m_VisitEqualsSet(SetObject* left_set, SetObject* right_set) {
         m_CheckOrErr(left_set->value.size() == right_set->value.size(),
                      "compared sets must have the same size");
@@ -911,6 +921,10 @@ class Interpreter {
             }
             case AstType::Vector: {
                 return m_VisitVector(static_cast<Vector*>(expr.get()));
+            }
+            case AstType::Factorial: {
+                return m_VisitFactorial(
+                    static_cast<FactorialExpr*>(expr.get()));
             }
         }
     }

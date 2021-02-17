@@ -43,7 +43,7 @@ class Parser {
                       Tokens::Delim, Tokens::Edelim, Tokens::KeywordElse,
                       Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
                       Tokens::Comma, Tokens::Rcbracket, Tokens::KeywordIn,
-                      Tokens::Rbracket);
+                      Tokens::Rbracket, Tokens::Factorial);
     }
     std::vector<ptr_t> m_ParseSplitedInput(Tokens end, Tokens delim,
                                            const std::string& delimstr,
@@ -365,14 +365,24 @@ class Parser {
         return tok.is(Tokens::KeywordUnion, Tokens::KeywordIntersection);
     }
     ptr_t m_ParseSetOps() {
-        ptr_t out = m_ParseFactor();
+        ptr_t out = m_ParseSymbols();
         while (not_eof() && m_IsSetOps(m_Get())) {
             if (m_Get().is(Tokens::KeywordUnion)) {
                 m_Advance();
-                out = std::make_shared<UnionExpr>(out, m_ParseFactor());
+                out = std::make_shared<UnionExpr>(out, m_ParseSymbols());
             } else if (m_Get().is(Tokens::KeywordIntersection)) {
                 m_Advance();
-                out = std::make_shared<InterSectionExpr>(out, m_ParseFactor());
+                out = std::make_shared<InterSectionExpr>(out, m_ParseSymbols());
+            }
+        }
+        return out;
+    }
+    ptr_t m_ParseSymbols() {
+        ptr_t out = m_ParseFactor();
+        while (not_eof() && m_Get().is(Tokens::Factorial)) {
+            if (m_Get().is(Tokens::Factorial)) {
+                m_Advance();
+                out = std::make_shared<FactorialExpr>(out);
             }
         }
         return out;

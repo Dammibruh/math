@@ -51,6 +51,7 @@ enum class AstType {
     NotExpr,
     IfExpr,
     Boolean,
+    Factorial,
     ReturnExpr,
     SetObject,
     Matrix,
@@ -98,6 +99,15 @@ struct Number : public Expr {
         ss << val;
         return ss.str();
     }
+};
+struct FactorialExpr : public Expr {
+    std::shared_ptr<Expr> value;
+    explicit FactorialExpr(const std::shared_ptr<Expr>& v) : value(v) {}
+    std::string str() override {
+        return fmt::format("<FactorialExpr value=<{}>>", value->str());
+    }
+    AstType type() const override { return AstType::Factorial; }
+    std::string to_str() override { return fmt::format("{}!", value->str()); }
 };
 struct Boolean : public Expr {
     bool val;
