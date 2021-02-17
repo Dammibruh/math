@@ -43,7 +43,8 @@ class Parser {
                       Tokens::Delim, Tokens::Edelim, Tokens::KeywordElse,
                       Tokens::Dot, Tokens::Semicolon, Tokens::Lcbracket,
                       Tokens::Comma, Tokens::Rcbracket, Tokens::KeywordIn,
-                      Tokens::Rbracket, Tokens::Factorial);
+                      Tokens::Factorial, Tokens::Rbracket, Tokens::AbsEnd,
+                      Tokens::NormEnd);
     }
     std::vector<ptr_t> m_ParseSplitedInput(Tokens end, Tokens delim,
                                            const std::string& delimstr,
@@ -58,12 +59,7 @@ class Parser {
         if (m_Get().isNot(end)) {
             while (m_Get().isNot(end)) {
                 if (m_Get().is(delim)) {
-                    /*if ((out.size() > 0) && m_Peek().isNot(delim) &&
-                        not_eof()) {*/
                     m_Advance();
-                    /*} else {
-                        m_Err();
-                    }*/
                 } else if (!not_eof()) {
                     m_ThrowErr("ParseError",
                                fmt::format("EOF while parsing {}", msg));
@@ -177,10 +173,12 @@ class Parser {
     }
     bool m_IsValidPunc(TokenHandler tok) {
         return tok.is(Tokens::Digit, Tokens::Dot, Tokens::Delim, Tokens::Edelim,
-                      Tokens::Minus, Tokens::Semicolon, Tokens::Rbracket);
+                      Tokens::Minus, Tokens::Semicolon, Tokens::Rbracket,
+                      Tokens::AbsEnd, Tokens::NormEnd);
     }
     bool m_IsBreakable(TokenHandler tok) {
-        return tok.is(Tokens::Semicolon, Tokens::KeywordIn, Tokens::Rbracket) ||
+        return tok.is(Tokens::Semicolon, Tokens::KeywordIn, Tokens::Rbracket,
+                      Tokens::AbsEnd, Tokens::NormEnd) ||
                m_IsCompareToken(tok) || m_IsLogical(tok);
     }
     std::string m_GetDigit() {
@@ -382,7 +380,7 @@ class Parser {
         while (not_eof() && m_Get().is(Tokens::Factorial)) {
             if (m_Get().is(Tokens::Factorial)) {
                 m_Advance();
-                out = std::make_shared<FactorialExpr>(out);
+                out = std::make_shared<SymbolExpr>(out, Symbol::Factorial);
             }
         }
         return out;
@@ -434,13 +432,35 @@ class Parser {
             m_Advance();
             if (not_eof()) {
                 ptr_t out = m_ParseComp();
-                if (m_Get().isNot(Tokens::Rparen)) {
+                if (m_Get().is(Tokens::Comma)) {
+                    m_Advance();
+                    ptr_t rhs = m_ParseComp();
+                    m_CheckOrErr(m_Get().is(Tokens::Rparen), "unexpected eof");
+                    return std::make_shared<Point>(out, rhs);
+                } else if (m_Get().isNot(Tokens::Rparen)) {
                     m_Err();
                 }
                 m_Advance();
                 return out;
             }
             m_Err();
+        } else if (tok.is(Tokens::AbsBegin)) {
+            m_Advance();
+            m_CheckOrErr(not_eof(), "unexpected eof");
+            ptr_t temp = m_ParseComp();
+            m_CheckOrErr(m_Get().is(Tokens::AbsEnd),
+                         fmt::format("expected '|' found '{}'", m_Get().value));
+            m_Advance();
+            return std::make_shared<SymbolExpr>(temp, Symbol::Abs);
+        } else if (tok.is(Tokens::NormBegin)) {
+            m_Advance();
+            m_CheckOrErr(not_eof(), "unexpected eof");
+            ptr_t temp = m_ParseComp();
+            m_CheckOrErr(
+                m_Get().is(Tokens::NormEnd),
+                fmt::format("expected '||' found '{}'", m_Get().value));
+            m_Advance();
+            return std::make_shared<SymbolExpr>(temp, Symbol::Norm);
         } else if (tok.is(Tokens::Digit)) {
             if (not_eof()) {
                 if (m_IsValidAfterNumber(m_Peek()) ||

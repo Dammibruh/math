@@ -55,7 +55,11 @@ enum class Tokens {
     LessThan,
     Range,
     LessThanOrEqual,
-    Boolean
+    Boolean,
+    NormBegin,  // ||x||
+    NormEnd,
+    AbsBegin,  // |x|
+    AbsEnd
 };
 struct TokenHandler {
     std::string value;
@@ -78,6 +82,7 @@ struct TokenHandler {
 class Lexer {
     std::vector<TokenHandler> m_Tokens;
     std::size_t m_Pos = 0;
+    bool is_abs{}, is_norm{};
     std::string m_Src;
     bool m_IsDigit(char c) { return (c >= '0' && c <= '9'); }
     bool not_eof() { return m_Pos < m_Src.size(); }
@@ -298,6 +303,18 @@ class Lexer {
                         m_AddTok(Tokens::Factorial, "!");
                     }
                     break;
+                case '|':
+                    if (m_Peek() == '|' && !m_AtEnd()) {
+                        m_Advance();
+                        m_AddTok(is_norm ? Tokens::NormEnd : Tokens::NormBegin,
+                                 "||");
+                        is_norm = !is_norm;
+                    } else {
+                        m_AddTok(is_abs ? Tokens::AbsEnd : Tokens::AbsBegin,
+                                 "|");
+                        is_abs = !is_abs;
+                    }
+                    break;
             }
             m_Advance();
         }
@@ -339,6 +356,10 @@ static std::map<Tokens, std::string_view> tokens_str{
     {Tokens::LessThanOrEqual, "LESSTHANOREQUAL"},
     {Tokens::Equals, "EQUALS"},
     {Tokens::NotEquals, "NOTEQUALS"},
+    {Tokens::AbsBegin, "ABSBEGIN"},
+    {Tokens::AbsEnd, "ABSEND"},
+    {Tokens::NormBegin, "NORMBEGIN"},
+    {Tokens::NormEnd, "NORMEND"},
     {Tokens::KeywordOr, "KEYWORDOR"},
     {Tokens::KeywordAnd, "KEYWORDAND"},
     {Tokens::KeywordNull, "KEYWORDNULL"},

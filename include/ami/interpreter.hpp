@@ -52,11 +52,34 @@ class Interpreter {
     val_t m_VisitAdd(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
         val_t _rhs = visit(boe->rhs);
-        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs))
+        if (m_IsValidOper(_lhs) && m_IsValidOper(_rhs)) {
             return Number(std::get<Number>(_lhs).val +
                           std::get<Number>(_rhs).val);
-        else
+
+        } else if (auto [lhs, rhs] = std::tuple{std::get_if<Vector>(&_lhs),
+                                                std::get_if<Vector>(&_rhs)};
+                   (lhs != nullptr) && (rhs != nullptr)) {
+            m_CheckOrErr(lhs->value.size() == rhs->value.size(),
+                         "vectors must have the same size in order to perform "
+                         "binary oprations");
+            std::vector<ptr_t> out;
+            for (std::size_t i = 0; i < lhs->value.size(); i++) {
+                val_t v_lhs_num = visit(lhs->value.at(i)),
+                      v_rhs_num = visit(rhs->value.at(i));
+                Number *lhs_num = std::get_if<Number>(&v_lhs_num),
+                       *rhs_num = std::get_if<Number>(&v_rhs_num);
+                m_CheckOrErr((lhs_num != nullptr) && (rhs_num != nullptr),
+                             "invalid type");
+                out.push_back(
+                    std::make_shared<Number>(lhs_num->val + rhs_num->val));
+            }
+            return visit(std::make_shared<Vector>(out));
+        } else if (auto [lhs, rhs] = std::tuple{std::get_if<Point>(&_lhs),
+                                                std::get_if<Point>(&_rhs)};
+                   (lhs != nullptr) && (rhs != nullptr)) {
+        } else {
             m_Err("binary operation '+' is not valid in this context");
+        }
     }
     val_t m_VisitSub(BinaryOpExpr* boe) {
         val_t _lhs = visit(boe->lhs);
@@ -773,8 +796,8 @@ class Interpreter {
                      "invalid index");
         return visit(target->value.at(num->val));
     }
-    val_t m_VisitFactorial(FactorialExpr* fexpr) {
-        val_t t_visit = visit(fexpr->value);
+    val_t m_VisitFactorial(SymbolExpr* sexpr) {
+        val_t t_visit = visit(sexpr->value);
         Number* num = std::get_if<Number>(&t_visit);
         m_CheckOrErr(num != nullptr, "invalid use of '!'");
         long double out = 1;
@@ -786,6 +809,37 @@ class Interpreter {
             }
             return Number(out);
         }
+    }
+    val_t m_VisitPoint(Point* p) {
+        val_t v_lhs = visit(p->lhs), v_rhs = visit(p->rhs);
+        Number *lhs_num = std::get_if<Number>(&v_lhs),
+               *rhs_num = std::get_if<Number>(&v_rhs);
+        m_CheckOrErr((lhs_num != nullptr) && (rhs_num != nullptr),
+                     "coordinates can only be numbers");
+        return Point(std::make_shared<Number>(lhs_num->val),
+                     std::make_shared<Number>(rhs_num->val));
+    }
+    val_t m_VisitAbsExpr(SymbolExpr* sexpr) {
+        val_t t_visit = visit(sexpr->value);
+        Number* num = std::get_if<Number>(&t_visit);
+        m_CheckOrErr(num != nullptr, "invalid type");
+        return Number(std::abs(num->val));
+    }
+    // TODO:
+    // add a helper variable so visit for '*' operator will compute |k|.||v|| if
+    // the input is |k.v| where 'k' is a scalar and 'v' is a vector
+    val_t m_VisitNormExpr(SymbolExpr* sexpr) {
+        val_t v_val = visit(sexpr->value);
+        Vector* vec = std::get_if<Vector>(&v_val);
+        m_CheckOrErr(vec != nullptr, "can only compute the norm of a vector");
+        long double out = 0;
+        for (auto& elm : vec->value) {
+            val_t t_vnum = visit(elm);
+            Number* num = std::get_if<Number>(&t_vnum);
+            m_CheckOrErr(num != nullptr, "invalid type");
+            out += std::pow(num->val, 2);
+        }
+        return Number(std::sqrt(out));
     }
     val_t m_VisitEqualsSet(SetObject* left_set, SetObject* right_set) {
         m_CheckOrErr(left_set->value.size() == right_set->value.size(),
@@ -926,9 +980,19 @@ class Interpreter {
             case AstType::Vector: {
                 return m_VisitVector(static_cast<Vector*>(expr.get()));
             }
-            case AstType::Factorial: {
-                return m_VisitFactorial(
-                    static_cast<FactorialExpr*>(expr.get()));
+            case AstType::Symbol: {
+                SymbolExpr* sexpr = static_cast<SymbolExpr*>(expr.get());
+                switch (sexpr->symbol) {
+                    case Symbol::Factorial:
+                        return m_VisitFactorial(sexpr);
+                    case Symbol::Abs:
+                        return m_VisitAbsExpr(sexpr);
+                    case Symbol::Norm:
+                        return m_VisitNormExpr(sexpr);
+                }
+            }
+            case AstType::Point: {
+                return m_VisitPoint(static_cast<Point*>(expr.get()));
             }
         }
     }

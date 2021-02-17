@@ -51,9 +51,10 @@ enum class AstType {
     NotExpr,
     IfExpr,
     Boolean,
-    Factorial,
+    Symbol,
     ReturnExpr,
     SetObject,
+    Point,
     Matrix,
     Vector,
     Tensor,
@@ -99,15 +100,6 @@ struct Number : public Expr {
         ss << val;
         return ss.str();
     }
-};
-struct FactorialExpr : public Expr {
-    std::shared_ptr<Expr> value;
-    explicit FactorialExpr(const std::shared_ptr<Expr>& v) : value(v) {}
-    std::string str() override {
-        return fmt::format("<FactorialExpr value=<{}>>", value->str());
-    }
-    AstType type() const override { return AstType::Factorial; }
-    std::string to_str() override { return fmt::format("{}!", value->str()); }
 };
 struct Boolean : public Expr {
     bool val;
@@ -437,7 +429,48 @@ struct SliceExpr : public Expr {
                            index->str());
     }
 };
+enum class Symbol { Abs, Norm, Factorial };
+struct SymbolExpr : public Expr {
+    std::shared_ptr<Expr> value;
+    Symbol symbol;
+    SymbolExpr(const std::shared_ptr<Expr>& v, Symbol s)
+        : value(v), symbol(s) {}
+    AstType type() const override { return AstType::Symbol; }
+    std::string to_str() override {
+        if (symbol == Symbol::Abs) {
+            return fmt::format("|{}|", value->to_str());
+        } else if (symbol == Symbol::Norm) {
+            return fmt::format("||{}||", value->to_str());
+        } else if (symbol == Symbol::Factorial) {
+            return fmt::format("{}!", value->to_str());
+        }
+    }
+    std::string str() override {
+        if (symbol == Symbol::Abs) {
+            return fmt::format("<SymbolExpr symb=<abs> value=<{}>>",
+                               value->str());
+        } else if (symbol == Symbol::Norm) {
+            return fmt::format("<SymbolExpr symb=<norm> value=<{}>>",
+                               value->str());
+        } else if (symbol == Symbol::Factorial) {
+            return fmt::format("<SymbolExpr symb=<factorial> value=<{}>>",
+                               value->str());
+        }
+    }
+};
 struct SetOpExpr : public Expr {};
+struct Point : public Expr {
+    std::shared_ptr<Expr> lhs, rhs;
+    Point(const std::shared_ptr<Expr>& l, const std::shared_ptr<Expr>& r)
+        : lhs(l), rhs(r) {}
+    AstType type() const override { return AstType::Point; }
+    std::string to_str() override {
+        return fmt::format("({}, {})", lhs->to_str(), rhs->to_str());
+    }
+    std::string str() override {
+        return fmt::format("<Point lhs=<{}>, rhs=<{}>", lhs->str(), rhs->str());
+    }
+};
 struct Vector : public Expr {
     std::vector<std::shared_ptr<Expr>> value;
     explicit Vector(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
