@@ -8,16 +8,13 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 #include "ast.hpp"
 #include "errors.hpp"
 #include "lexer.hpp"
 #include "types.hpp"
 namespace ami {
-/*
- * TODO:
- * use m_CheckOrErr instead of nested if statements
- * */
 class Parser {
     std::vector<TokenHandler> m_Src;
     std::size_t m_Pos = 0;
@@ -145,8 +142,6 @@ class Parser {
             args = m_ParseFunctionDefArgs();
         } else if (!contains_fdef) {
             args = m_ParseFunctionArgs();
-        } else {
-            // m_Err();
         }
         m_Advance();
         if (contains_fdef) {
