@@ -460,15 +460,23 @@ struct SymbolExpr : public Expr {
 };
 struct SetOpExpr : public Expr {};
 struct Point : public Expr {
-    std::shared_ptr<Expr> lhs, rhs;
-    Point(const std::shared_ptr<Expr>& l, const std::shared_ptr<Expr>& r)
-        : lhs(l), rhs(r) {}
+    std::vector<std::shared_ptr<Expr>> value;
+    Point(const std::vector<std::shared_ptr<Expr>>& v) : value(v) {}
     AstType type() const override { return AstType::Point; }
     std::string to_str() override {
-        return fmt::format("({}, {})", lhs->to_str(), rhs->to_str());
+        return details::vecToString(value, "(", ")");
     }
     std::string str() override {
-        return fmt::format("<Point lhs=<{}>, rhs=<{}>", lhs->str(), rhs->str());
+        std::string _str{"<Point value={"};
+        if (value.empty()) {
+            _str += "null";
+        } else {
+            for (auto& e : value) {
+                _str += e->str() + ", ";
+            }
+        }
+        _str += "}>";
+        return _str;
     }
 };
 struct Vector : public Expr {

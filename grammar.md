@@ -119,8 +119,15 @@ x * 2 // multiply coordinates by 2
 ||x|| // compute the norm of the vector x
 ```
 ## points
-points are expressed as (x, y)
+points are expressed as tuples like: (x, y)
 ```js
 x = (5, 2) // point
+y = (6, 1)
+x + y
+x - y
+x * y
+x / y
+2 * x
 ```
+all binary operators are allowed for points
 more soon™

@@ -431,19 +431,24 @@ class Parser {
         if (tok.is(Tokens::Lparen)) {
             m_Advance();
             if (not_eof()) {
-                ptr_t out = m_ParseComp();
-                if (m_Get().is(Tokens::Comma)) {
+                std::vector<TokenHandler> subvec(m_Src.begin() + m_Pos,
+                                                 m_Src.end());
+                auto find_cm =
+                    std::find_if(subvec.begin(), subvec.end(),
+                                 [](auto& t) { return t.is(Tokens::Comma); });
+                if (find_cm != subvec.end()) {
+                    auto rhs = m_ParseSplitedInput(Tokens::Rparen,
+                                                   Tokens::Comma, ",", "point");
+                    return std::make_shared<Point>(rhs);
+                } else {
+                    ptr_t out = m_ParseComp();
+                    m_CheckOrErr(m_Get().is(Tokens::Rparen), "invalid syntax");
                     m_Advance();
-                    ptr_t rhs = m_ParseComp();
-                    m_CheckOrErr(m_Get().is(Tokens::Rparen), "unexpected eof");
-                    return std::make_shared<Point>(out, rhs);
-                } else if (m_Get().isNot(Tokens::Rparen)) {
-                    m_Err();
+                    return out;
                 }
-                m_Advance();
-                return out;
+            } else {
+                m_Err();
             }
-            m_Err();
         } else if (tok.is(Tokens::AbsBegin)) {
             m_Advance();
             m_CheckOrErr(not_eof(), "unexpected eof");
