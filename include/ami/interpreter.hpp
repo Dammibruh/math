@@ -778,10 +778,14 @@ class Interpreter {
         Number* num = std::get_if<Number>(&t_visit);
         m_CheckOrErr(num != nullptr, "invalid use of '!'");
         long double out = 1;
-        for (long double i = 1; i <= num->val; ++i) {
-            out *= i;
+        if (num->val >= 1e7) {
+            return Number(INFINITY);
+        } else {
+            for (long double i = 1; i <= num->val; ++i) {
+                out *= i;
+            }
+            return Number(out);
         }
-        return Number(out);
     }
     val_t m_VisitEqualsSet(SetObject* left_set, SetObject* right_set) {
         m_CheckOrErr(left_set->value.size() == right_set->value.size(),
