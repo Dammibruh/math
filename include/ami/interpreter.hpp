@@ -897,7 +897,7 @@ class Interpreter {
         Number* num = std::get_if<Number>(&t_visit);
         m_CheckOrErr(num != nullptr, "invalid use of '!'");
         long double out = 1;
-        if (num->val >= 1e7 || std::isnan(num->val)) {
+        if (num->val >= 1e7 || num->val != num->val) {
             return Number(INFINITY);
         } else {
             for (long double i = 1; i <= num->val; ++i) {
