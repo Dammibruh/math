@@ -13,8 +13,16 @@ x -= 1
 x /= 1
 x *= 1
 x %= 1
-x ^= 2
+x ^= 1
 ```
+### symbols
+unfortunately only ascii symbols are supported
+```js
+5! // returns the factorial of 5
+|-5| // returns the absolute value of -5 
+||-5|| // error can only compute the norm on vectors
+```
+
 ### logical operations
 there is 2 logical operators `and` and `or` there is also Booleans, `true` or `false`
 ```js
@@ -108,6 +116,11 @@ y = [3, 6, 1] // 3d vector
 x * y // error cannot perform operations on different sizes
 x * [9, 3] // performs dot product `ax.bx + ay.by`
 x * 2 // multiply coordinates by 2
+||x|| // compute the norm of the vector x
 ```
-
+## points
+points are expressed as (x, y)
+```js
+x = (5, 2) // point
+```
 more soon™
