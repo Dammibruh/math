@@ -11,7 +11,7 @@
 #include <pybind11/embed.h>
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
-py::scoped_interpreter guard{};
+py::gil_scoped_acquire guard;
 py::module_ math = py::module_::import("math");
 py::object pyinf = math.attr("inf");
 py::object pynan = math.attr("nan");
