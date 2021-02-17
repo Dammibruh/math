@@ -107,7 +107,7 @@ x = [2, 1] // 2d vector
 y = [3, 6, 1] // 3d vector
 x * y // error cannot perform operations on different sizes
 x * [9, 3] // performs dot product `ax.bx + ay.by`
-x * 2 // mutliply coordinates by 2
+x * 2 // multiply coordinates by 2
 ```
 
 more soon™
