@@ -604,8 +604,8 @@ class Interpreter {
                *get_nn = std::get_if<Number>(&s_max);
         if ((get_n == nullptr) || (get_nn == nullptr)) {
             m_Err("intervals can only hold numbers");
-        } else if ((std::isinf(get_n->val) && !iexpr->min.strict) ||
-                   (std::isinf(get_nn->val) && !iexpr->max.strict) ||
+        } else if ((!std::isfinite(get_n->val) && !iexpr->min.strict) ||
+                   (!std::isfinite(get_nn->val) && !iexpr->max.strict) ||
                    (get_n->val > get_nn->val)) {
             m_Err("invalid interval range");
         } else {
@@ -877,6 +877,8 @@ class Interpreter {
             val_t t_f_v_num = visit(e);
             m_CheckOrErr(std::get_if<Number>(&t_f_v_num) != nullptr,
                          "vectors can only contain numbers");
+            m_CheckOrErr(!std::isfinite(std::get_if<Number>(&t_f_v_num)->val),
+                         "invalid value");
         }
         return Vector(vec->value);
     }
@@ -913,6 +915,8 @@ class Interpreter {
             val_t t_f_v_num = visit(e);
             m_CheckOrErr(std::get_if<Number>(&t_f_v_num) != nullptr,
                          "points can only contain numbers");
+            m_CheckOrErr(!std::isfinite(std::get_if<Number>(&t_f_v_num)->val),
+                         "invalid value");
         }
         return Point(p->value);
     }
