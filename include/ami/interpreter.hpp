@@ -877,7 +877,7 @@ class Interpreter {
             val_t t_f_v_num = visit(e);
             m_CheckOrErr(std::get_if<Number>(&t_f_v_num) != nullptr,
                          "vectors can only contain numbers");
-            m_CheckOrErr(!std::isfinite(std::get_if<Number>(&t_f_v_num)->val),
+            m_CheckOrErr(std::isfinite(std::get_if<Number>(&t_f_v_num)->val),
                          "invalid value");
         }
         return Vector(vec->value);
@@ -915,7 +915,7 @@ class Interpreter {
             val_t t_f_v_num = visit(e);
             m_CheckOrErr(std::get_if<Number>(&t_f_v_num) != nullptr,
                          "points can only contain numbers");
-            m_CheckOrErr(!std::isfinite(std::get_if<Number>(&t_f_v_num)->val),
+            m_CheckOrErr(std::isfinite(std::get_if<Number>(&t_f_v_num)->val),
                          "invalid value");
         }
         return Point(p->value);
