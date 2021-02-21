@@ -5,6 +5,7 @@
 #include <utility>
 
 int main() {
+    // TODO: use std::visit smh
     std::string expr;
     while ((std::cout << "> ") && std::getline(std::cin, expr)) {
         try {
